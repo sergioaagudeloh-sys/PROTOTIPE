@@ -34,7 +34,18 @@ import {
   Smartphone,
   Palette,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  LayoutDashboard,
+  BookOpen,
+  MessageSquare,
+  Calculator,
+  ChevronLeft,
+  Menu,
+  X,
+  Zap,
+  DollarSign,
+  Hash,
+  Send
 } from 'lucide-react'
 import { initializeApp, getApps, getApp } from 'firebase/app'
 import { 
@@ -243,6 +254,41 @@ export default function App() {
   const [logPage, setLogPage] = useState(1)
   const [crmStatusFilter, setCrmStatusFilter] = useState('todos')
 
+  // --- NAVEGACIÓN POR TABS ---
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // --- SIMULADOR DE PROYECCIONES DE INGRESOS ---
+  const [projNewClients, setProjNewClients] = useState(3)
+  const [projAvgSales, setProjAvgSales] = useState(8000000)
+  const [projRate, setProjRate] = useState(1.5)
+  const [projMonths, setProjMonths] = useState(12)
+
+  // --- GESTOR DE PLANTILLAS WHATSAPP ---
+  const [waTemplates, setWaTemplates] = useState([
+    {
+      id: 'recordatorio-simple',
+      name: 'Recordatorio Simple',
+      body: 'Hola *{cliente}*, te informamos que la comisión del periodo *{periodo}* por valor de *${comision}* está pendiente. ¡Gracias por tu atención!'
+    },
+    {
+      id: 'recordatorio-urgente',
+      name: 'Recordatorio Urgente',
+      body: '⚠️ *{cliente}*, tu saldo de comisión del mes *{periodo}* por *${comision}* aún no ha sido recibido. Por favor regulariza para evitar inconvenientes con el servicio.'
+    },
+    {
+      id: 'confirmacion-pago',
+      name: 'Confirmación de Pago Recibido',
+      body: '✅ Hola *{cliente}*, confirmamos recibo del pago de comisión correspondiente al periodo *{periodo}* por *${comision}*. ¡Muchas gracias!'
+    }
+  ])
+  const [selectedWaTemplate, setSelectedWaTemplate] = useState('recordatorio-simple')
+  const [waClientId, setWaClientId] = useState('')
+  const [waPeriodo, setWaPeriodo] = useState(() => new Date().toISOString().substring(0, 7))
+  const [waComision, setWaComision] = useState('')
+  const [editingTemplate, setEditingTemplate] = useState(null)
+  const [editingTemplateBody, setEditingTemplateBody] = useState('')
+
   const getClientRate = (clientId) => {
     const configObj = clientesSaas.find(c => c.id === clientId)
     return configObj && configObj.comisionPorcentaje !== undefined ? parseFloat(configObj.comisionPorcentaje) : 1.5
@@ -360,12 +406,19 @@ export default function App() {
         setPendingCliProvisioning(null)
       } else {
         const errText = await cliRes.text()
-        addLog(`[Reintento fallido] CLI respondió con error: ${errText}`, 'error')
-        showToast(`Sigue fallando: ${errText}`, { type: 'error' })
+        let errMessage = ''
+        try {
+          const errData = JSON.parse(errText)
+          errMessage = errData.error || errData.message || errText
+        } catch (_) {
+          errMessage = errText
+        }
+        addLog(`[Reintento fallido] CLI respondió con error: ${errMessage}`, 'error')
+        showToast(`Sigue fallando: ${errMessage}`, { type: 'error' })
       }
     } catch (retryErr) {
-      addLog(`[Reintento fallido] Daemon CLI sigue offline: ${retryErr.message}`, 'error')
-      showToast('El servidor CLI sigue offline. Verifica que esté corriendo en el puerto 3001.', { type: 'error' })
+      addLog(`[Reintento fallido] Daemon CLI sigue offline o hay error de conexión: ${retryErr.message}`, 'error')
+      showToast(`El servidor CLI sigue offline o inaccesible: ${retryErr.message}`, { type: 'error' })
     } finally {
       setIsProvisioning(false)
     }
@@ -465,16 +518,32 @@ export default function App() {
     setDbStatus('conectado')
     addLog("Conexión con base de datos Firestore Central establecida.", "success")
 
+    let unsubDocs = null
+    let unsubClientes = null
+    let unsubTokens = null
+
+    const cleanUpListeners = () => {
+      if (typeof unsubDocs === 'function') {
+        unsubDocs()
+        unsubDocs = null
+      }
+      if (typeof unsubClientes === 'function') {
+        unsubClientes()
+        unsubClientes = null
+      }
+      if (typeof unsubTokens === 'function') {
+        unsubTokens()
+        unsubTokens = null
+      }
+    }
+
     // Escuchar cambios de sesión
     const unsubAuth = onAuthStateChanged(authInstance, (firebaseUser) => {
       setUser(firebaseUser)
+      cleanUpListeners()
       
       if (firebaseUser) {
         addLog(`Sesión iniciada como ${firebaseUser.email}`, "success")
-        
-        let unsubDocs = () => {}
-        let unsubClientes = () => {}
-        let unsubTokens = () => {}
 
         try {
           // Escuchar reportes en tiempo real
@@ -515,12 +584,6 @@ export default function App() {
         } catch (dbErr) {
           console.error("Error setting up Firestore listeners:", dbErr)
         }
-        
-        return () => {
-          unsubDocs()
-          unsubClientes()
-          unsubTokens()
-        }
       } else {
         setReports([])
         setIsLoading(false)
@@ -528,7 +591,10 @@ export default function App() {
       }
     })
 
-    return () => unsubAuth()
+    return () => {
+      unsubAuth()
+      cleanUpListeners()
+    }
   }, [])
 
   const loadSimulatedData = () => {
@@ -1057,7 +1123,7 @@ export default function App() {
                             type="button"
                             onClick={handleAutoDetectConfig}
                             disabled={isFetchingConfig}
-                            className="px-3 py-2 bg-indigo-650/30 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                            className="px-3 py-2 bg-indigo-600/30 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/25 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                           >
                             {isFetchingConfig ? 'Detectando...' : 'Auto-detectar'}
                           </button>
@@ -1161,7 +1227,7 @@ export default function App() {
                               }}
                               className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
                                 isSelected 
-                                  ? 'bg-indigo-650/15 border-indigo-500 shadow-md scale-[1.02]' 
+                                  ? 'bg-indigo-600/15 border-indigo-500 shadow-md scale-[1.02]' 
                                   : 'bg-[var(--color-surface-2)]/30 border-[var(--color-border)] hover:bg-[var(--color-surface-2)]/60'
                               }`}
                             >
@@ -1641,7 +1707,14 @@ export default function App() {
                           showToast(`Cliente ${newClientName} registrado y proyecto creado en disco`, { type: 'success' })
                         } else {
                           const errText = await cliRes.text()
-                          addLog(`[CLI API Warning] CLI respondió con error: ${errText}. Datos guardados en Firestore — puedes reintentar.`, "warning")
+                          let errMessage = ''
+                          try {
+                            const errData = JSON.parse(errText)
+                            errMessage = errData.error || errData.message || errText
+                          } catch (_) {
+                            errMessage = errText
+                          }
+                          addLog(`[CLI API Warning] CLI respondió con error: ${errMessage}. Datos guardados en Firestore — puedes reintentar.`, "warning")
                           setPendingCliProvisioning({
                             clientId, nombre: newClientName.trim(), comisionPorcentaje, telemetryToken,
                             payload: cliPayload
@@ -1650,7 +1723,7 @@ export default function App() {
                         }
                       } catch (cliErr) {
                         console.error("Error en API de aprovisionamiento:", cliErr)
-                        addLog(`[CLI API Warning] Daemon CLI offline. Datos en Firestore seguros — usa el botón Reintentar cuando el CLI esté disponible.`, "warning")
+                        addLog(`[CLI API Warning] Daemon CLI offline o error de conexión: ${cliErr.message}. Datos en Firestore seguros — usa el botón Reintentar cuando el CLI esté disponible.`, "warning")
                         setPendingCliProvisioning({
                           clientId, nombre: newClientName.trim(), comisionPorcentaje, telemetryToken,
                           payload: cliPayload
@@ -1905,7 +1978,7 @@ export default function App() {
                       }}
                       className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col gap-2 hover:scale-[1.01] ${
                         isSelected 
-                          ? 'bg-indigo-650/15 border-indigo-500 shadow-md ring-1 ring-indigo-500' 
+                          ? 'bg-indigo-600/15 border-indigo-500 shadow-md ring-1 ring-indigo-500' 
                           : 'bg-[var(--color-surface-2)]/30 border-[var(--color-border)] hover:bg-[var(--color-surface-2)]/60'
                       }`}
                     >
@@ -1953,1384 +2026,833 @@ export default function App() {
     )
   }
 
+  // CONSTANTES DE NAVEGACIÓN
+  const NAV_TABS = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, shortLabel: 'Inicio' },
+    { id: 'crm', label: 'CRM Clientes', icon: Users, shortLabel: 'CRM' },
+    { id: 'billing', label: 'Facturación', icon: CreditCard, shortLabel: 'Cobros' },
+    { id: 'onboarding', label: 'Nuevo Cliente', icon: Sparkles, shortLabel: 'Nuevo' },
+    { id: 'settings', label: 'Ajustes', icon: Settings, shortLabel: 'Config' },
+  ]
+
+  // Proyecciones de ingresos calculadas
+  const projExistingMonthly = clientesSaas.reduce((sum, c) => {
+    const rate = parseFloat(c.comisionPorcentaje) || 1.5
+    return sum + (projAvgSales * rate / 100)
+  }, 0)
+  const projNewMonthly = projNewClients * (projAvgSales * projRate / 100)
+  const projTotalMonthly = projExistingMonthly + projNewMonthly
+  const projTotalYear = projTotalMonthly * projMonths
+
+  // Obtener preview del mensaje WhatsApp
+  const getWaPreview = () => {
+    const tmpl = waTemplates.find(t => t.id === selectedWaTemplate)
+    if (!tmpl) return ''
+    const clientPending = reports
+      .filter(r => r.clientId === waClientId && (r.estadoPago || 'pendiente') === 'pendiente')
+      .reduce((sum, r) => sum + (r.comisionValor || 0), 0)
+    const comVal = waComision || clientPending.toLocaleString('es-CO')
+    return tmpl.body
+      .replace(/{cliente}/g, waClientId || '{cliente}')
+      .replace(/{periodo}/g, waPeriodo || '{periodo}')
+      .replace(/{comision}/g, comVal || '{comision}')
+  }
+
+  const handleSendWhatsApp = () => {
+    const msg = getWaPreview()
+    if (!msg.trim()) {
+      showToast('Completa los campos del mensaje', { type: 'error' })
+      return
+    }
+    const encoded = encodeURIComponent(msg)
+    window.open(`https://wa.me/?text=${encoded}`, '_blank')
+    showToast('Abriendo WhatsApp con el mensaje...', { type: 'success' })
+  }
+
+  const handleCopyWaMessage = () => {
+    const msg = getWaPreview()
+    copy(msg)
+    showToast('Mensaje copiado al portapapeles ✓', { type: 'success' })
+  }
+
   // RENDER PANEL PRINCIPAL
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] font-sans pb-12 overflow-x-hidden selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-300">
+    <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] font-sans overflow-x-hidden selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-300 flex flex-col">
       {/* Background decorativos */}
-      <div className="absolute top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-indigo-500/5 to-purple-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100" />
-      <div className="absolute top-[20%] left-[-10%] w-[40%] h-[400px] rounded-full bg-indigo-500/2 blur-[150px] pointer-events-none opacity-50 dark:opacity-100" />
+      <div className="fixed top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-indigo-500/5 to-purple-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
+      <div className="fixed top-[20%] left-[-10%] w-[40%] h-[400px] rounded-full bg-indigo-500/2 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
 
-      {/* Barra de Navegación Premium */}
-      <nav className="h-16 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300">
+      {/* Topbar Premium */}
+      <nav className="h-14 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md px-4 lg:px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-            <Layers size={18} />
+          {/* Sidebar toggle (desktop) */}
+          <button
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+            className="hidden lg:flex w-8 h-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 hover:bg-[var(--color-surface-2)] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+          >
+            <Menu size={15} />
+          </button>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+            <Layers size={16} />
           </div>
           <div className="flex flex-col">
-            <span className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Consola SaaS Central</span>
-            <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">SaaS Developer Cockpit</span>
+            <span className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Consola SaaS</span>
+            <span className="hidden sm:block text-[9px] text-slate-500 font-medium tracking-wider uppercase">Developer Cockpit</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Status Badge */}
-          <div className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-full border text-[11px] font-bold ${
+        <div className="flex items-center gap-3">
+          <div className={`hidden md:flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold ${
             dbStatus === 'conectado' && !isSimulated
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
           }`}>
-            <span className="relative flex h-2 w-2">
+            <span className="relative flex h-1.5 w-1.5">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                 dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-400' : 'bg-amber-400'
               }`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${
+              <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
                 dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-500' : 'bg-amber-500'
               }`}></span>
             </span>
-            {dbStatus === 'conectado' && !isSimulated ? 'Firestore Real-time' : 'Modo Sandbox Activo'}
+            {dbStatus === 'conectado' && !isSimulated ? 'Live' : 'Sandbox'}
           </div>
-
-          <div className="h-6 w-px bg-slate-800" />
-
-          <div className="flex items-center gap-3">
-            <DarkModeToggle isDark={theme === 'dark'} onToggle={toggleTheme} />
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-xs font-semibold text-[var(--color-text)]">{user.email}</span>
-              <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Root Dev</span>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="h-9 px-3.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer active:scale-95 shadow-md"
-            >
-              <LogOut size={13} />
-              <span className="hidden sm:inline">Cerrar Sesión</span>
-            </button>
+          <DarkModeToggle isDark={theme === 'dark'} onToggle={toggleTheme} />
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-[11px] font-semibold text-[var(--color-text)] truncate max-w-[140px]">{user.email}</span>
+            <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Root Dev</span>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="h-8 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer active:scale-95"
+          >
+            <LogOut size={13} />
+            <span className="hidden sm:inline">Salir</span>
+          </button>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 mt-8 space-y-8">
+      {/* ===== LAYOUT PRINCIPAL: SIDEBAR + CONTENIDO ===== */}
+      <div className="flex flex-1 overflow-hidden relative z-10">
         
-        {/* Cabecera y Herramientas */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-[var(--color-surface)] p-6 rounded-3xl shadow-sm transition-colors duration-300">
-          <div>
-            <h1 className="text-2xl font-black text-[var(--color-text)] flex items-center gap-2.5">
-              Panel de Comisiones y Facturación
-            </h1>
-            <p className="text-xs text-[var(--color-text-muted)] mt-1">Gestión administrativa del Core SaaS. Visualiza ingresos compartidos y estado de transferencias bancarias de tus clientes.</p>
-          </div>
-          
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
-            <button 
-              onClick={() => setIsOnboardingActive(true)}
-              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 transition-all duration-300 shadow-[0_0_15px_rgba(99,102,241,0.2)] active:scale-[0.98] cursor-pointer"
-            >
-              <Plus size={14} />
-              Nuevo Aprovisionamiento
-            </button>
-            <button 
-              onClick={handleCreateTestReport}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-350 text-xs font-bold flex items-center gap-2 transition-all duration-200 border border-slate-700 active:scale-[0.98] cursor-pointer"
-            >
-              <Database size={14} />
-              Enviar Telemetría de Prueba
-            </button>
-            <button
-              onClick={() => {
-                setIsSimulated(prev => !prev)
-                addLog(`Modo de ejecución cambiado a: ${!isSimulated ? 'SANDBOX' : 'CONECTADO'}`, "warning")
-              }}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-2 transition-all duration-200 border border-slate-700 active:scale-[0.98] cursor-pointer"
-            >
-              <Server size={14} />
-              Alternar Entorno
-            </button>
-          </div>
-        </div>
-
-        {/* Alerta de Simulación */}
-        {isSimulated && (
-          <div className="p-4.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3.5 text-xs text-amber-800 dark:text-amber-400/90 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none" />
-            <AlertTriangle size={20} className="shrink-0 text-amber-600 dark:text-amber-500 animate-pulse mt-0.5" />
-            <div className="space-y-1">
-              <strong className="text-amber-900 dark:text-amber-300 font-bold block">Consola operando en Entorno Sandbox Local</strong>
-              <p>
-                Los cambios se realizarán de manera simulada en memoria y no impactarán en el Firestore central. Registra tus variables de entorno <code className="bg-[var(--color-bg)] text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded font-mono border border-[var(--color-border)]">VITE_DEVELOPER_CENTRAL_*</code> en tu archivo <code className="bg-[var(--color-bg)] text-indigo-600 dark:text-indigo-400 px-1 py-0.5 rounded font-mono border border-[var(--color-border)]">.env.local</code> para activar la sincronización real de producción.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Banner de Reintento CLI Pendiente */}
-        {pendingCliProvisioning && (
-          <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4 relative overflow-hidden shadow-sm animate-pulse-subtle">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex items-start gap-3 flex-1">
-              <div className="p-2 bg-red-500/10 rounded-xl shrink-0 mt-0.5">
-                <AlertTriangle size={16} className="text-red-500" />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-xs font-extrabold text-red-400 uppercase tracking-wider">Aprovisionamiento físico pendiente</p>
-                <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
-                  El cliente <strong className="text-[var(--color-text)] font-mono">{pendingCliProvisioning.clientId}</strong> fue registrado en Firestore correctamente, pero el daemon CLI (puerto 3001) no respondió. El proyecto aún no existe en disco.
-                </p>
-                <p className="text-[10px] text-red-400/70 font-mono mt-0.5">Asegúrate de que el CLI Bridge esté corriendo, luego presiona Reintentar.</p>
-              </div>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={handleRetryCliProvisioning}
-                disabled={isProvisioning}
-                className="px-3.5 py-2 bg-red-500 hover:bg-red-400 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-[11px] font-extrabold cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-[0_0_12px_rgba(239,68,68,0.3)]"
-              >
-                {isProvisioning ? (
-                  <><RefreshCw size={12} className="animate-spin" /> Reintentando...</>
-                ) : (
-                  <><RefreshCw size={12} /> Reintentar</>
-                )}
-              </button>
-              <button
-                onClick={handleDiscardPendingProvisioning}
-                className="px-3 py-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] rounded-xl text-[11px] font-bold cursor-pointer border border-[var(--color-border)] transition-colors"
-              >
-                Descartar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tarjetas de Métricas - Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {[
-            { label: 'Comisión Acumulada', val: totalComision, icon: TrendingUp, col: 'from-indigo-500/20 to-indigo-500/5 dark:from-indigo-500/10 dark:to-indigo-500/2', iconCol: 'text-indigo-600 dark:text-indigo-400', type: 'comision' },
-            { label: 'Cobrado Exitoso', val: totalCobrado, icon: CheckCircle, col: 'from-emerald-500/20 to-emerald-500/5 dark:from-emerald-500/10 dark:to-emerald-500/2', iconCol: 'text-emerald-600 dark:text-emerald-400', type: 'cobrado' },
-            { label: 'Saldo por Recaudar', val: totalPendiente, icon: Clock, col: 'from-amber-500/20 to-amber-500/5 dark:from-amber-500/10 dark:to-amber-500/2', iconCol: 'text-amber-600 dark:text-amber-400', type: 'pendiente' },
-            { label: 'Clientes Registrados', val: clientesActivos, icon: Users, col: 'from-purple-500/20 to-purple-500/5 dark:from-purple-500/10 dark:to-purple-500/2', iconCol: 'text-purple-600 dark:text-purple-400', isNumber: true, type: 'clientes' }
-          ].map((card, idx) => (
-            <div 
-              key={idx} 
-              onClick={() => setActiveMetricModal(card.type)}
-              className={`p-6 bg-gradient-to-br ${card.col} bg-[var(--color-surface)] rounded-3xl flex flex-col gap-2 shadow-sm relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer`}
-              title={`Ver detalle de ${card.label}`}
-            >
-              {/* Glow en hover */}
-              <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold text-[var(--color-text-muted)] uppercase tracking-widest leading-tight">{card.label}</span>
-                <div className={`p-2 rounded-xl bg-[var(--color-bg)] ${card.iconCol}`}>
-                  <card.icon size={16} />
-                </div>
-              </div>
-              <p className="text-3xl font-extrabold mt-3 tracking-tight text-[var(--color-text)]">
-                {card.isNumber ? card.val : `$${card.val.toLocaleString('es-CO')}`}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Sección de Gráficos e Historial de Eventos (Fila de 2 Columnas) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          
-          {/* Gráfico de Barras Estilizadas de Comisiones */}
-          <div className="lg:col-span-2 bg-[var(--color-surface)] p-6 rounded-3xl flex flex-col justify-between shadow-sm relative overflow-hidden transition-colors duration-300">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/3 rounded-full blur-3xl pointer-events-none" />
-            
-            <div className="space-y-1 mb-6">
-              <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Métricas de Rendimiento</span>
-              <h3 className="font-extrabold text-lg text-[var(--color-text)] flex items-center gap-2">
-                <BarChart3 size={18} className="text-indigo-500 dark:text-indigo-400" />
-                Reparto de Comisiones por Cliente
-              </h3>
-              <p className="text-xs text-[var(--color-text-muted)]">Top 5 clientes ordenados por aportación de ingresos al desarrollador.</p>
-            </div>
-
-            {chartData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-slate-500 text-xs">
-                No hay datos suficientes para generar estadísticas.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {chartData.map((client, idx) => {
-                  const pctWidth = (client.totalCommission / maxChartValue) * 100
-                  const colorSet = [
-                    { text: 'text-indigo-650 dark:text-indigo-400', bg: 'bg-indigo-500/10', bar: 'bg-indigo-500' },
-                    { text: 'text-purple-650 dark:text-purple-400', bg: 'bg-purple-500/10', bar: 'bg-purple-500' },
-                    { text: 'text-emerald-650 dark:text-emerald-400', bg: 'bg-emerald-500/10', bar: 'bg-emerald-500' },
-                    { text: 'text-amber-650 dark:text-amber-400', bg: 'bg-amber-500/10', bar: 'bg-amber-500' },
-                    { text: 'text-pink-650 dark:text-pink-400', bg: 'bg-pink-500/10', bar: 'bg-pink-500' }
-                  ][idx % 5]
-
-                  return (
-                    <div 
-                      key={client.name} 
-                      className="p-3 bg-[var(--color-surface-2)]/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--color-surface-2)]/50 transition-all duration-300 shadow-sm"
-                    >
-                      {/* Left: Avatar + Title */}
-                      <div className="flex items-center gap-3 min-w-[150px]">
-                        <div className={`w-9 h-9 rounded-xl ${colorSet.bg} ${colorSet.text} font-bold flex items-center justify-center text-xs tracking-wider uppercase shrink-0 shadow-sm`}>
-                          {client.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-xs text-[var(--color-text)] truncate max-w-[110px]" title={client.name}>
-                            {client.name}
-                          </h4>
-                          <p className="text-[9px] text-[var(--color-text-muted)] font-medium">
-                            {client.reportCount} {client.reportCount === 1 ? 'reporte' : 'reportes'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Center: Progress Bar + Sales Base */}
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between text-[9px] text-[var(--color-text-muted)]">
-                          <span>Ventas brutas</span>
-                          <span className="font-mono font-semibold">${client.totalSales.toLocaleString('es-CO')}</span>
-                        </div>
-                        <div className="h-2 bg-[var(--color-bg)] rounded-full overflow-hidden p-0.5 border border-[var(--color-border)]">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-1000 ease-out ${colorSet.bar}`}
-                            style={{ width: `${Math.max(pctWidth, 3)}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Right: Commission Accum + Estatus Badge */}
-                      <div className="sm:text-right min-w-[100px] flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--color-border)]">
-                        <div>
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Comisión</span>
-                          <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 font-mono">
-                            ${client.totalCommission.toLocaleString('es-CO')}
-                          </span>
-                        </div>
-                        
-                        {client.pendingCount > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            {client.pendingCount} {client.pendingCount === 1 ? 'pendiente' : 'pendientes'}
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            Al día
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            
-            <div className="mt-6 pt-4 border-t border-slate-850 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Aportación sobre comisiones totales</span>
-              <span className="font-bold font-mono text-indigo-400">Calculado en base a datos cargados</span>
-            </div>
-          </div>
-
-          {/* Consola de Telemetría en Tiempo Real (Log feed) */}
-          <div className="bg-[var(--color-surface)] p-6 rounded-3xl flex flex-col shadow-sm transition-colors duration-300">
-            <div className="space-y-1 mb-4">
-              <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Diagnóstico</span>
-              <h3 className="font-extrabold text-lg text-[var(--color-text)] flex items-center gap-2">
-                <Activity size={18} className="text-indigo-550 dark:text-indigo-400" />
-                Consola de Telemetría
-              </h3>
-            </div>
-
-            {/* Visual System Health Indicators */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-2xl flex items-center gap-2.5 transition-colors duration-300">
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                    dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-400' : 'bg-amber-400'
-                  }`}></span>
-                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}></span>
-                </span>
-                <div className="min-w-0">
-                  <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Canal Base Datos</span>
-                  <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">
-                    {dbStatus === 'conectado' && !isSimulated ? 'Firestore Central' : 'Sandbox (Bypass)'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-2xl flex items-center gap-2.5 transition-colors duration-300">
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${systemLogs.length > 0 ? (systemLogs[0].type === 'error' ? 'bg-red-500' : systemLogs[0].type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-500'}`} />
-                <div className="min-w-0">
-                  <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Último Estatus</span>
-                  <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">
-                    {systemLogs.length > 0 ? (
-                      `${systemLogs[0].client ? `[${systemLogs[0].client}] ` : ''}${
-                        systemLogs[0].type === 'success' ? 'Éxito' : systemLogs[0].type === 'error' ? 'Error' : 'Transmisión Info'
-                      }`
-                    ) : 'Sin actividad'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Logs Area */}
-            <div className="flex-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-2xl p-3 h-[240px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-slate-950 flex flex-col gap-2 transition-colors duration-300">
-              {systemLogs.length === 0 ? (
-                <div className="text-[var(--color-text-muted)] italic text-xs text-center my-auto">No hay transmisiones registradas en esta sesión.</div>
-              ) : (
-                (() => {
-                  const LOGS_PER_PAGE = 5;
-                  const totalLogPages = Math.ceil(systemLogs.length / LOGS_PER_PAGE) || 1;
-                  const currentPage = Math.min(logPage, totalLogPages);
-                  const startIndex = (currentPage - 1) * LOGS_PER_PAGE;
-                  const paginatedLogs = systemLogs.slice(startIndex, startIndex + LOGS_PER_PAGE);
-
-                  return paginatedLogs.map((log, index) => {
-                    const cardStyle = {
-                      info: 'bg-[var(--color-surface-2)]/45 text-[var(--color-text-muted)] border-[var(--color-border)]',
-                      warning: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20',
-                      error: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20',
-                      success: 'bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20'
-                    }[log.type]
-
-                    const badgeStyle = {
-                      info: 'bg-slate-500/10 text-slate-500 dark:text-slate-400',
-                      warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                      error: 'bg-red-500/10 text-red-600 dark:text-red-400',
-                      success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    }[log.type]
-
-                    const label = {
-                      info: 'INFO',
-                      warning: 'ALERTA',
-                      error: 'ERROR',
-                      success: 'ÉXITO'
-                    }[log.type]
-
-                    return (
-                      <div key={index} className={`p-2.5 rounded-xl border ${cardStyle} transition-all duration-200 flex flex-col gap-1 text-[10px]`}>
-                        <div className="flex items-center justify-between">
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${badgeStyle}`}>{label}</span>
-                          <span className="text-[8px] text-[var(--color-text-muted)] opacity-85 font-mono">{log.timestamp}</span>
-                        </div>
-                        <p className="font-mono leading-relaxed break-words">{log.message}</p>
-                      </div>
-                    )
-                  })
-                })()
-              )}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => { setSystemLogs([]); setLogPage(1); }}
-                  className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wider cursor-pointer"
+        {/* SIDEBAR - Desktop */}
+        <aside className={`hidden lg:flex flex-col shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md transition-all duration-300 ${
+          sidebarCollapsed ? 'w-[64px]' : 'w-[220px]'
+        }`}>
+          <div className="flex flex-col gap-1 p-3 flex-1 pt-5">
+            {NAV_TABS.map(tab => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  id={`sidebar-tab-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  title={sidebarCollapsed ? tab.label : undefined}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer border w-full text-left ${
+                    isActive
+                      ? 'sidebar-item-active text-indigo-400 border-indigo-500/30'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]/50 border-transparent'
+                  }`}
                 >
-                  Limpiar Consola
+                  <Icon size={16} className={`shrink-0 ${isActive ? 'text-indigo-400' : ''}`} />
+                  {!sidebarCollapsed && <span className="truncate">{tab.label}</span>}
+                  {!sidebarCollapsed && isActive && <ChevronRight size={12} className="ml-auto text-indigo-400/60" />}
                 </button>
-                {systemLogs.length > 5 && (
-                  (() => {
-                    const LOGS_PER_PAGE = 5;
-                    const totalLogPages = Math.ceil(systemLogs.length / LOGS_PER_PAGE) || 1;
-                    const currentPage = Math.min(logPage, totalLogPages);
-
-                    return (
-                      <div className="flex items-center gap-1.5 text-[10px]">
-                        <button
-                          disabled={currentPage === 1}
-                          onClick={() => setLogPage(prev => Math.max(prev - 1, 1))}
-                          className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed font-bold"
-                        >
-                          ◀
-                        </button>
-                        <span className="font-mono text-[9px] text-[var(--color-text-muted)]">
-                          {currentPage}/{totalLogPages}
-                        </span>
-                        <button
-                          disabled={currentPage === totalLogPages}
-                          onClick={() => setLogPage(prev => Math.min(prev + 1, totalLogPages))}
-                          className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed font-bold"
-                        >
-                          ▶
-                        </button>
-                      </div>
-                    )
-                  })()
-                )}
-              </div>
-              <span className="text-[10px] text-slate-500 font-semibold uppercase flex items-center gap-1">
-                <Terminal size={11} className="text-slate-600" />
-                Live Monitor
-              </span>
-            </div>
+              )
+            })}
           </div>
-        </div>
-
-        {/* Listado de Facturación de Clientes */}
-        <div className="bg-[var(--color-surface)] rounded-3xl overflow-hidden shadow-sm transition-colors duration-300">
-          
-          {/* Header del listado y filtros */}
-          <div className="p-6 border-b border-[var(--color-border)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="space-y-1">
-              <h3 className="font-extrabold text-base flex items-center gap-2 text-[var(--color-text)]">
-                <Layers size={16} className="text-indigo-500 dark:text-indigo-400" />
-                Consolidado Mensual de Comisiones
-              </h3>
-              <p className="text-xs text-[var(--color-text-muted)]">Historial general de facturas transmitidas por clientes.</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              {/* Buscador */}
-              <div className="flex items-center gap-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] px-3.5 py-2 rounded-xl w-full sm:w-60 shadow-sm focus-within:border-indigo-500/50 transition-all transition-colors duration-300">
-                <Search size={14} className="text-slate-500" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar cliente o periodo..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-transparent border-0 outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:ring-0"
-                />
-              </div>
-
-              {/* Selector Filtro de Estado */}
-              <div className="flex bg-[var(--color-bg)] border border-[var(--color-border)] p-1 rounded-xl w-full sm:w-auto shadow-sm transition-colors duration-300">
-                {[
-                  { id: 'todos', label: 'Todos' },
-                  { id: 'pendiente', label: 'Pendientes' },
-                  { id: 'pagado', label: 'Pagados' }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setStatusFilter(tab.id)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                      statusFilter === tab.id 
-                        ? 'bg-indigo-600 text-white shadow-md' 
-                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="p-16 text-center text-slate-400 text-xs space-y-3">
-              <RefreshCw size={24} className="mx-auto animate-spin text-indigo-400" />
-              <p className="font-semibold uppercase tracking-wider text-[10px]">Descargando datos del servidor central...</p>
-            </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="p-16 text-center text-slate-500 text-xs">
-              Ningún reporte coincide con los criterios de búsqueda o filtrado.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-surface-2)]/70 font-bold transition-colors duration-300">
-                    <th className="p-4 pl-6 uppercase tracking-wider text-[10px]">Identificador de App</th>
-                    <th className="p-4 uppercase tracking-wider text-[10px]">Periodo</th>
-                    <th className="p-4 text-right uppercase tracking-wider text-[10px]">Ventas Totales</th>
-                    <th className="p-4 text-center uppercase tracking-wider text-[10px]">Tarifa</th>
-                    <th className="p-4 text-right uppercase tracking-wider text-[10px]">Comisión</th>
-                    <th className="p-4 text-center uppercase tracking-wider text-[10px]">Estatus Pago</th>
-                    <th className="p-4 pr-6 text-right uppercase tracking-wider text-[10px]">Última Transmisión</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-border)]">
-                  {filteredReports.map(report => (
-                    <tr 
-                      key={report.id} 
-                      onClick={() => setSelectedReport(report)}
-                      className={`hover:bg-[var(--color-surface-2)]/40 transition-colors cursor-pointer group ${
-                        selectedReport && selectedReport.id === report.id ? 'bg-[var(--color-surface-2)]/60' : ''
-                      }`}
-                    >
-                      <td className="p-4 pl-6 font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${
-                            report.estadoPago === 'pagado' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'
-                          }`} />
-                          {report.clientId}
-                        </div>
-                      </td>
-                      <td className="p-4 font-mono font-bold text-[var(--color-text)] opacity-90">{report.periodo}</td>
-                      <td className="p-4 text-right font-mono text-[var(--color-text)] font-medium">${report.totalVentas.toLocaleString('es-CO')}</td>
-                      <td className="p-4 text-center font-bold text-[var(--color-text-muted)]">
-                        {(() => {
-                          const clientConfig = clientesSaas.find(c => c.id === report.clientId);
-                          const mode = clientConfig?.billingMode || 'percentage';
-                          if (mode === 'percentage') {
-                            return `${report.comisionPorcentaje || clientConfig?.comisionPorcentaje || 1.5}%`;
-                          } else if (mode === 'fixed_per_service') {
-                            const fixed = clientConfig?.montoFijoServicio || 500;
-                            return `$${fixed.toLocaleString('es-CO')} c/u`;
-                          } else if (mode === 'flat_monthly') {
-                            const flat = clientConfig?.pagoMensualFijo || 50000;
-                            return `$${(flat / 1000).toFixed(0)}k/mes`;
-                          }
-                          return `${report.comisionPorcentaje || 1.5}%`;
-                        })()}
-                      </td>
-                      <td className="p-4 text-right font-mono">
-                        <div className="font-extrabold text-indigo-600 dark:text-indigo-300">${report.comisionValor.toLocaleString('es-CO')}</div>
-                        {(() => {
-                          const clientConfig = clientesSaas.find(c => c.id === report.clientId);
-                          if (clientConfig?.enableDianBilling) {
-                            const costPerDoc = clientConfig.costoPorFacturaDian || 150;
-                            const dianCount = report.dianDocsCount || 0;
-                            const dianCommission = dianCount * costPerDoc;
-                            const baseCommission = Math.max(0, report.comisionValor - dianCommission);
-                            return (
-                              <div className="text-[9px] text-[var(--color-text-muted)] mt-0.5 font-sans leading-none">
-                                Base: ${baseCommission.toLocaleString('es-CO')} + DIAN: ${dianCommission.toLocaleString('es-CO')}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </td>
-                      <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleTogglePayment(report)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all duration-300 cursor-pointer flex items-center gap-1.5 mx-auto ${
-                            report.estadoPago === 'pagado'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
-                          }`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${report.estadoPago === 'pagado' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                          {report.estadoPago === 'pagado' ? 'Pagado' : 'Pendiente'}
-                        </button>
-                      </td>
-                      <td className="p-4 pr-6 text-right font-mono text-[10px] text-[var(--color-text-muted)] opacity-80 group-hover:opacity-100 transition-colors">
-                        {report.updatedAt?.toDate ? report.updatedAt.toDate().toLocaleString('es-CO') : 'Reciente'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Sidebar footer */}
+          {!sidebarCollapsed && (
+            <div className="p-3 border-t border-[var(--color-border)] text-[9px] text-[var(--color-text-muted)] font-mono">
+              v{new Date().getFullYear()} · PROTOTIPE ENGINE
             </div>
           )}
-        </div>
-      </div>
+        </aside>
 
-      {/* Inspector de Reporte Lateral (Drawer Modal) */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          {/* Backdrop Tap */}
-          <div className="absolute inset-0" onClick={() => setSelectedReport(null)} />
-          
-          <div className="relative w-full max-w-md bg-[var(--color-surface)] border-l border-[var(--color-border)] h-full p-6 shadow-2xl flex flex-col justify-between animate-slide-in overflow-y-auto transition-colors duration-300">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-500/20">
-                    <Activity size={14} />
-                  </div>
-                  <h3 className="font-extrabold text-sm text-[var(--color-text)]">Ficha de Telemetría</h3>
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 overflow-y-auto scrollbar-thin pb-24 lg:pb-8">
+          <div className="max-w-[1400px] mx-auto px-4 lg:px-6 mt-6 space-y-6">
+
+          {/* Alerta de Simulación (siempre visible) */}
+          {isSimulated && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-3 text-xs text-amber-800 dark:text-amber-400/90 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl pointer-events-none" />
+              <AlertTriangle size={16} className="shrink-0 text-amber-500 animate-pulse mt-0.5" />
+              <div>
+                <strong className="text-amber-900 dark:text-amber-300 font-bold block">Entorno Sandbox Activo</strong>
+                <p className="text-[10px] opacity-80 mt-0.5">Los cambios son en memoria. Configura <code className="font-mono">VITE_DEVELOPER_CENTRAL_*</code> en <code className="font-mono">.env.local</code> para producción.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Banner de Reintento CLI Pendiente */}
+          {pendingCliProvisioning && (
+            <div className="p-4 bg-red-500/10 border border-red-500/25 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4 relative overflow-hidden shadow-sm">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-start gap-3 flex-1">
+                <div className="p-2 bg-red-500/10 rounded-xl shrink-0 mt-0.5">
+                  <AlertTriangle size={16} className="text-red-500" />
                 </div>
-                <button 
-                  onClick={() => setSelectedReport(null)}
-                  className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] w-8 h-8 rounded-lg flex items-center justify-center font-bold border border-[var(--color-border)] cursor-pointer transition-colors duration-200"
-                >
-                  ✕
+                <div className="space-y-0.5">
+                  <p className="text-xs font-extrabold text-red-400 uppercase tracking-wider">Aprovisionamiento físico pendiente</p>
+                  <p className="text-[11px] text-[var(--color-text-muted)] leading-relaxed">
+                    El cliente <strong className="text-[var(--color-text)] font-mono">{pendingCliProvisioning.clientId}</strong> fue registrado en Firestore, pero el daemon CLI (puerto 3001) no respondió.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={handleRetryCliProvisioning} disabled={isProvisioning}
+                  className="px-3.5 py-2 bg-red-500 hover:bg-red-400 disabled:opacity-50 text-white rounded-xl text-[11px] font-extrabold cursor-pointer flex items-center gap-1.5 transition-all active:scale-95">
+                  {isProvisioning ? <><RefreshCw size={12} className="animate-spin" /> Reintentando...</> : <><RefreshCw size={12} /> Reintentar</>}
+                </button>
+                <button onClick={handleDiscardPendingProvisioning}
+                  className="px-3 py-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] rounded-xl text-[11px] font-bold cursor-pointer border border-[var(--color-border)] transition-colors">
+                  Descartar
                 </button>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-4">
+          {/* ===== TAB: DASHBOARD ===== */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6 tab-content-enter">
+              {/* Encabezado */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">ID del Reporte</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-xs font-mono font-bold text-[var(--color-text)] bg-[var(--color-bg)] p-2 rounded-lg border border-[var(--color-border)] flex-1 truncate">{selectedReport.id}</p>
-                    <button 
-                      onClick={() => { copy(selectedReport.id); showToast('ID de Reporte copiado', { type: 'success' }) }} 
-                      className="h-8 w-8 shrink-0 bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-border)] rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                      title="Copiar ID"
-                    >
-                      <Copy size={14} />
-                    </button>
-                  </div>
+                  <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
+                    <LayoutDashboard size={20} className="text-indigo-400" />
+                    Dashboard General
+                  </h1>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Visión consolidada de ingresos y estado del sistema en tiempo real.</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] font-sans">Cliente ID</label>
-                    <p className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">{selectedReport.clientId}</p>
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">Periodo</label>
-                    <p className="text-sm font-mono font-bold text-[var(--color-text)] mt-1">{selectedReport.periodo}</p>
-                  </div>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={handleCreateTestReport}
+                    className="px-3 py-2 rounded-xl bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] text-xs font-bold flex items-center gap-1.5 transition-all border border-[var(--color-border)] active:scale-[0.98] cursor-pointer">
+                    <Database size={13} />
+                    Test Telemetría
+                  </button>
+                  <button onClick={() => { setIsSimulated(prev => !prev); addLog(`Modo: ${!isSimulated ? 'SANDBOX' : 'CONECTADO'}`, 'warning') }}
+                    className="px-3 py-2 rounded-xl bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] text-xs font-bold flex items-center gap-1.5 transition-all border border-[var(--color-border)] active:scale-[0.98] cursor-pointer">
+                    <Server size={13} />
+                    {isSimulated ? 'Sandbox' : 'Conectado'}
+                  </button>
                 </div>
+              </div>
 
-                <div className="h-px bg-[var(--color-border)] my-2" />
+              {/* Métricas - Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: 'Comisión Acumulada', val: totalComision, icon: TrendingUp, col: 'from-indigo-500/20 to-indigo-500/5 dark:from-indigo-500/10 dark:to-indigo-500/2', iconCol: 'text-indigo-600 dark:text-indigo-400', type: 'comision' },
+                  { label: 'Cobrado', val: totalCobrado, icon: CheckCircle, col: 'from-emerald-500/20 to-emerald-500/5 dark:from-emerald-500/10 dark:to-emerald-500/2', iconCol: 'text-emerald-600 dark:text-emerald-400', type: 'cobrado' },
+                  { label: 'Por Recaudar', val: totalPendiente, icon: Clock, col: 'from-amber-500/20 to-amber-500/5 dark:from-amber-500/10 dark:to-amber-500/2', iconCol: 'text-amber-600 dark:text-amber-400', type: 'pendiente' },
+                  { label: 'Clientes Activos', val: clientesActivos, icon: Users, col: 'from-purple-500/20 to-purple-500/5 dark:from-purple-500/10 dark:to-purple-500/2', iconCol: 'text-purple-600 dark:text-purple-400', isNumber: true, type: 'clientes' }
+                ].map((card, idx) => (
+                  <div key={idx} onClick={() => setActiveMetricModal(card.type)}
+                    className={`p-5 bg-gradient-to-br ${card.col} bg-[var(--color-surface)] rounded-2xl flex flex-col gap-2 shadow-sm relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer border border-[var(--color-border)]`}>
+                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-extrabold text-[var(--color-text-muted)] uppercase tracking-widest leading-tight">{card.label}</span>
+                      <div className={`p-1.5 rounded-lg bg-[var(--color-bg)] ${card.iconCol}`}>
+                        <card.icon size={14} />
+                      </div>
+                    </div>
+                    <p className="text-2xl font-extrabold mt-2 tracking-tight text-[var(--color-text)]">
+                      {card.isNumber ? card.val : `$${card.val.toLocaleString('es-CO')}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[var(--color-text-muted)]">Ventas Registradas del Mes:</span>
-                    <span className="font-mono font-bold text-[var(--color-text)]">${selectedReport.totalVentas.toLocaleString('es-CO')}</span>
+              {/* Charts + Logs */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+                {/* Gráfico de barras */}
+                <div className="lg:col-span-2 bg-[var(--color-surface)] p-6 rounded-2xl flex flex-col shadow-sm relative overflow-hidden transition-colors duration-300 border border-[var(--color-border)]">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/3 rounded-full blur-3xl pointer-events-none" />
+                  <div className="space-y-1 mb-5">
+                    <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Métricas</span>
+                    <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2">
+                      <BarChart3 size={16} className="text-indigo-500 dark:text-indigo-400" />
+                      Comisiones por Cliente
+                    </h3>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[var(--color-text-muted)]">Porcentaje de Comisión:</span>
-                    <span className="font-bold text-[var(--color-text)]">{selectedReport.comisionPorcentaje}%</span>
-                  </div>
-                  
-                  {(() => {
-                    const clientConfig = clientesSaas.find(c => c.id === selectedReport.clientId);
-                    if (clientConfig?.enableDianBilling) {
-                      const costPerDoc = clientConfig.costoPorFacturaDian || 150;
-                      // We can count DIAN invoices. In telemetry, we can save a field `dianDocsCount`. Let's default to a mock/read count, or calculate it.
-                      const dianCount = selectedReport.dianDocsCount || 0;
-                      const dianCommission = dianCount * costPerDoc;
-                      const baseCommission = Math.max(0, selectedReport.comisionValor - dianCommission);
-                      
-                      return (
-                        <>
-                          <div className="flex justify-between items-center text-xs pl-2 border-l border-indigo-500/30">
-                            <span className="text-[var(--color-text-muted)]">Comisión Base SaaS:</span>
-                            <span className="font-mono font-medium text-[var(--color-text)]">${baseCommission.toLocaleString('es-CO')}</span>
+                  {chartData.length === 0 ? (
+                    <div className="h-40 flex items-center justify-center text-slate-500 text-xs">Sin datos suficientes.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {chartData.map((client, idx) => {
+                        const pctWidth = (client.totalCommission / maxChartValue) * 100
+                        const colorSet = [
+                          { text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-500/10', bar: 'bg-indigo-500' },
+                          { text: 'text-purple-650 dark:text-purple-400', bg: 'bg-purple-500/10', bar: 'bg-purple-500' },
+                          { text: 'text-emerald-650 dark:text-emerald-400', bg: 'bg-emerald-500/10', bar: 'bg-emerald-500' },
+                          { text: 'text-amber-650 dark:text-amber-400', bg: 'bg-amber-500/10', bar: 'bg-amber-500' },
+                          { text: 'text-pink-650 dark:text-pink-400', bg: 'bg-pink-500/10', bar: 'bg-pink-500' }
+                        ][idx % 5]
+                        return (
+                          <div key={client.name} className="p-3 bg-[var(--color-surface-2)]/30 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--color-surface-2)]/50 transition-all duration-300 shadow-sm">
+                            <div className="flex items-center gap-3 min-w-[140px]">
+                              <div className={`w-8 h-8 rounded-xl ${colorSet.bg} ${colorSet.text} font-bold flex items-center justify-center text-xs shrink-0`}>
+                                {client.name.substring(0, 2).toUpperCase()}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-xs text-[var(--color-text)] truncate max-w-[100px]" title={client.name}>{client.name}</h4>
+                                <p className="text-[9px] text-[var(--color-text-muted)]">{client.reportCount} reportes</p>
+                              </div>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center justify-between text-[9px] text-[var(--color-text-muted)]">
+                                <span>Ventas</span>
+                                <span className="font-mono">${client.totalSales.toLocaleString('es-CO')}</span>
+                              </div>
+                              <div className="h-1.5 bg-[var(--color-bg)] rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 ease-out ${colorSet.bar}`} style={{ width: `${Math.max(pctWidth, 3)}%` }} />
+                              </div>
+                            </div>
+                            <div className="text-right min-w-[90px]">
+                              <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Comisión</span>
+                              <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 font-mono">${client.totalCommission.toLocaleString('es-CO')}</span>
+                              {client.pendingCount > 0 ? (
+                                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 block mt-0.5">{client.pendingCount} pend.</span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 block mt-0.5">Al día</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex justify-between items-center text-xs pl-2 border-l border-indigo-500/30">
-                            <span className="text-[var(--color-text-muted)]">Documentos DIAN ({dianCount} u.):</span>
-                            <span className="font-mono font-medium text-[var(--color-text)]">${dianCommission.toLocaleString('es-CO')}</span>
-                          </div>
-                        </>
-                      );
-                    }
-                    return null;
-                  })()}
-
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[var(--color-text-muted)]">Valor de Comisión Total:</span>
-                    <span className="font-mono font-black text-indigo-600 dark:text-indigo-300 text-sm">${selectedReport.comisionValor.toLocaleString('es-CO')}</span>
-                  </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                <div className="h-px bg-[var(--color-border)] my-2" />
-
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Token de Autenticación de Envío</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-[10px] font-mono text-[var(--color-text-muted)] bg-[var(--color-bg)] p-2 rounded-lg border border-[var(--color-border)] break-all select-all flex-1 truncate">{selectedReport.token || 'Sandbox Mode (Bypass Token)'}</p>
-                    {selectedReport.token && (
-                      <button 
-                        onClick={() => { copy(selectedReport.token); showToast('Token de Telemetría copiado', { type: 'success' }) }} 
-                        className="h-8 w-8 shrink-0 bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-border)] rounded-lg flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
-                        title="Copiar Token"
-                      >
-                        <Copy size={14} />
-                      </button>
+                {/* Consola de Telemetría */}
+                <div className="bg-[var(--color-surface)] p-5 rounded-2xl flex flex-col shadow-sm transition-colors duration-300 border border-[var(--color-border)]">
+                  <div className="space-y-1 mb-4">
+                    <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Live Monitor</span>
+                    <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2">
+                      <Activity size={16} className="text-indigo-400" />
+                      Telemetría
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+                      <div className="min-w-0">
+                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Canal DB</span>
+                        <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{dbStatus === 'conectado' && !isSimulated ? 'Firestore' : 'Sandbox'}</span>
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${systemLogs.length > 0 ? (systemLogs[0].type === 'error' ? 'bg-red-500' : systemLogs[0].type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-500'}`} />
+                      <div className="min-w-0">
+                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Status</span>
+                        <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{systemLogs.length > 0 ? systemLogs[0].type : 'Inactivo'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-3 h-[220px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
+                    {systemLogs.length === 0 ? (
+                      <div className="text-[var(--color-text-muted)] italic text-xs text-center my-auto">Sin transmisiones registradas.</div>
+                    ) : (
+                      (() => {
+                        const LOGS_PER_PAGE = 5
+                        const totalLogPages = Math.ceil(systemLogs.length / LOGS_PER_PAGE) || 1
+                        const currentPage = Math.min(logPage, totalLogPages)
+                        const paginatedLogs = systemLogs.slice((currentPage - 1) * LOGS_PER_PAGE, currentPage * LOGS_PER_PAGE)
+                        return paginatedLogs.map((log, index) => {
+                          const cardStyle = { info: 'bg-[var(--color-surface-2)]/45 text-[var(--color-text-muted)] border-[var(--color-border)]', warning: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20', error: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20', success: 'bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' }[log.type]
+                          const badgeStyle = { info: 'bg-slate-500/10 text-slate-500 dark:text-slate-400', warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', error: 'bg-red-500/10 text-red-600 dark:text-red-400', success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' }[log.type]
+                          const label = { info: 'INFO', warning: 'WARN', error: 'ERR', success: 'OK' }[log.type]
+                          return (
+                            <div key={index} className={`p-2 rounded-xl border ${cardStyle} text-[10px] flex flex-col gap-0.5`}>
+                              <div className="flex items-center justify-between">
+                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${badgeStyle}`}>{label}</span>
+                                <span className="text-[8px] text-[var(--color-text-muted)] font-mono">{log.timestamp}</span>
+                              </div>
+                              <p className="font-mono leading-relaxed break-words">{log.message}</p>
+                            </div>
+                          )
+                        })
+                      })()
+                    )}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+                    <button onClick={() => { setSystemLogs([]); setLogPage(1) }} className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">Limpiar</button>
+                    {systemLogs.length > 5 && (
+                      <div className="flex items-center gap-1.5 text-[10px]">
+                        <button disabled={logPage === 1} onClick={() => setLogPage(p => Math.max(p - 1, 1))} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">◀</button>
+                        <span className="font-mono text-[9px] text-[var(--color-text-muted)]">{logPage}/{Math.ceil(systemLogs.length / 5)}</span>
+                        <button disabled={logPage >= Math.ceil(systemLogs.length / 5)} onClick={() => setLogPage(p => p + 1)} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">▶</button>
+                      </div>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Última Transmisión</label>
-                  <p className="text-xs text-[var(--color-text)] font-mono">{selectedReport.updatedAt?.toDate ? selectedReport.updatedAt.toDate().toLocaleString('es-CO') : 'Reciente'}</p>
+              {/* SIMULADOR DE PROYECCIONES DE INGRESOS */}
+              <div className="bg-[var(--color-surface)] p-6 rounded-2xl shadow-sm border border-[var(--color-border)] transition-colors duration-300">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Herramienta Financiera</span>
+                    <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2 mt-0.5">
+                      <Calculator size={16} className="text-indigo-400" />
+                      Simulador de Proyecciones de Ingresos
+                    </h3>
+                    <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Proyecta tu crecimiento añadiendo nuevas tiendas sobre la base actual de clientes.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Nuevas Tiendas a Añadir</label>
+                    <input type="number" min="0" value={projNewClients} onChange={e => setProjNewClients(parseInt(e.target.value) || 0)}
+                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Ventas Promedio/Tienda ($)</label>
+                    <input type="number" min="0" step="500000" value={projAvgSales} onChange={e => setProjAvgSales(parseInt(e.target.value) || 0)}
+                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Tasa Nuevas Tiendas (%)</label>
+                    <input type="number" min="0" step="0.1" value={projRate} onChange={e => setProjRate(parseFloat(e.target.value) || 0)}
+                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Horizonte (Meses)</label>
+                    <input type="number" min="1" max="60" value={projMonths} onChange={e => setProjMonths(parseInt(e.target.value) || 1)}
+                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-4 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Ingresos Actuales / Mes</span>
+                    <p className="text-lg font-black font-mono text-[var(--color-text)] mt-1">${projExistingMonthly.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                    <p className="text-[9px] text-[var(--color-text-muted)]">{clientesSaas.length} clientes activos</p>
+                  </div>
+                  <div className="p-4 bg-indigo-500/10 border border-indigo-500/25 rounded-xl">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-indigo-400 block">Proyección Total / Mes</span>
+                    <p className="text-lg font-black font-mono text-indigo-400 mt-1">${projTotalMonthly.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                    <p className="text-[9px] text-indigo-400/70">+{projNewClients} tiendas nuevas</p>
+                  </div>
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-400 block">Proyección {projMonths} Meses</span>
+                    <p className="text-lg font-black font-mono text-emerald-400 mt-1">${projTotalYear.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                    <p className="text-[9px] text-emerald-400/70">Acumulado total estimado</p>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            <div className="space-y-3 pt-6 border-t border-[var(--color-border)]">
-              <button
-                onClick={() => handleTogglePayment(selectedReport)}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 border shadow-md active:scale-[0.98] ${
-                  selectedReport.estadoPago === 'pagado'
-                    ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/25'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500/30'
-                }`}
-              >
-                {selectedReport.estadoPago === 'pagado' ? (
-                  <>
-                    <Clock size={13} />
-                    Marcar como Pendiente
-                  </>
-                ) : (
-                  <>
-                    <Check size={13} />
-                    Aprobar Pago y Recaudar
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={() => {
-                  exportCommissionReceiptPDF(selectedReport)
-                  showToast('Recibo PDF exportado con éxito', { type: 'success' })
-                }}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 border border-indigo-500/30 shadow-md active:scale-[0.98]"
-              >
-                <Download size={13} />
-                Descargar Recibo PDF
-              </button>
-              
-              <button
-                onClick={() => setSelectedReport(null)}
-                className="w-full py-2.5 rounded-xl bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] font-bold text-xs uppercase tracking-wider transition-colors duration-200 border border-[var(--color-border)] cursor-pointer"
-              >
-                Cerrar Detalles
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Detalle de Métrica */}
-      {activeMetricModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm animate-fade-in p-4">
-          {/* Backdrop */}
-          <div className="absolute inset-0" onClick={() => setActiveMetricModal(null)} />
-          
-          <div className="relative w-full max-w-2xl bg-[var(--color-surface)] border border-[var(--color-border)] rounded-3xl p-6 shadow-2xl animate-scale-up max-h-[85vh] flex flex-col overflow-hidden transition-colors duration-300">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-4 mb-4 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                  {activeMetricModal === 'comision' && <TrendingUp size={20} />}
-                  {activeMetricModal === 'cobrado' && <CheckCircle size={20} />}
-                  {activeMetricModal === 'pendiente' && <Clock size={20} />}
-                  {activeMetricModal === 'clientes' && <Users size={20} />}
-                </span>
-                <h3 className="font-extrabold text-base text-[var(--color-text)]">
-                  {activeMetricModal === 'comision' && 'Historial de Comisiones Acumuladas'}
-                  {activeMetricModal === 'cobrado' && 'Reportes Cobrados Exitosamente'}
-                  {activeMetricModal === 'pendiente' && 'Comisiones Pendientes por Recaudar'}
-                  {activeMetricModal === 'clientes' && 'Directorio y Control de Clientes'}
-                </h3>
+          {/* ===== TAB: CRM ===== */}
+          {activeTab === 'crm' && (
+            <div className="space-y-6 tab-content-enter">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
+                    <Users size={20} className="text-purple-400" />
+                    CRM de Clientes
+                  </h1>
+                  <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Directorio completo, configuración de facturación y portal de cada cliente.</p>
+                </div>
+                <button onClick={() => setActiveTab('onboarding')}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] active:scale-[0.98] cursor-pointer shrink-0">
+                  <Plus size={14} />
+                  Nuevo Cliente
+                </button>
               </div>
-              <button 
-                onClick={() => setActiveMetricModal(null)}
-                className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] w-8 h-8 rounded-lg flex items-center justify-center font-bold border border-[var(--color-border)] cursor-pointer transition-colors duration-200"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-              {/* CASO 1: COMISION ACUMULADA */}
-              {activeMetricModal === 'comision' && (() => {
-                // Agrupar comisiones por periodo
-                const periodGroups = reports.reduce((acc, r) => {
-                  acc[r.periodo] = (acc[r.periodo] || 0) + (r.comisionValor || 0)
-                  return acc
-                }, {})
-                const sortedPeriods = Object.entries(periodGroups).sort((a, b) => b[0].localeCompare(a[0]))
-
-                return (
-                  <div className="space-y-4">
-                    <p className="text-xs text-[var(--color-text-muted)]">Historial comisional mensual consolidado del desarrollador.</p>
-                    <div className="bg-[var(--color-bg)] rounded-2xl p-4 border border-[var(--color-border)] space-y-3">
-                      {sortedPeriods.length === 0 ? (
-                        <p className="text-xs text-[var(--color-text-muted)] italic text-center py-4">No hay datos de comisiones disponibles.</p>
-                      ) : (
-                        sortedPeriods.map(([period, val]) => (
-                          <div key={period} className="flex justify-between items-center border-b border-[var(--color-border)]/50 pb-2 last:border-b-0 last:pb-0 text-xs">
-                            <span className="font-bold text-[var(--color-text)] font-mono">{period}</span>
-                            <span className="font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">${val.toLocaleString('es-CO')}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* CASO 2: COBRADO EXITOSO */}
-              {activeMetricModal === 'cobrado' && (() => {
-                const paidReports = reports.filter(r => (r.estadoPago || 'pendiente').toLowerCase() === 'pagado')
-                return (
-                  <div className="space-y-3">
-                    <p className="text-xs text-[var(--color-text-muted)]">Lista de comprobantes de facturación ya recaudados.</p>
-                    <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-                      {paidReports.length === 0 ? (
-                        <p className="text-xs text-[var(--color-text-muted)] italic text-center py-8">No hay facturas pagadas en este momento.</p>
-                      ) : (
-                        paidReports.map(report => (
-                          <div key={report.id} className="p-3 bg-[var(--color-surface-2)]/40 rounded-xl flex items-center justify-between border border-[var(--color-border)] text-xs">
-                            <div>
-                              <p className="font-bold text-[var(--color-text)]">{report.clientId}</p>
-                              <p className="text-[10px] text-[var(--color-text-muted)] font-mono">{report.periodo}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">${report.comisionValor.toLocaleString('es-CO')}</span>
-                              <button 
-                                onClick={() => {
-                                  exportCommissionReceiptPDF(report)
-                                  showToast('Recibo PDF exportado con éxito', { type: 'success' })
-                                }}
-                                className="p-2 bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-border)] text-[var(--color-text)] rounded-lg transition-colors cursor-pointer"
-                                title="Descargar PDF"
-                              >
-                                <Download size={14} />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* CASO 3: SALDO POR RECAUDAR */}
-              {activeMetricModal === 'pendiente' && (() => {
-                const pendingReports = reports.filter(r => (r.estadoPago || 'pendiente').toLowerCase() === 'pendiente')
-                
-                const handleCopyReminder = (report) => {
-                  const valor = report.comisionValor.toLocaleString('es-CO')
-                  const msj = `Hola *${report.clientId}*, te informamos que la comisión de tu servicio correspondiente al periodo *${report.periodo}* por un valor de *$${valor}* ya ha sido calculada y está pendiente de pago. ¡Agradecemos tu atención!`
-                  copy(msj)
-                  showToast('Recordatorio copiado al portapapeles', { type: 'success' })
-                }
-
-                return (
-                  <div className="space-y-3">
-                    <p className="text-xs text-[var(--color-text-muted)]">Facturas comisionales pendientes. Aprueba cobros o copia recordatorios para WhatsApp rápidamente.</p>
-                    <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-                      {pendingReports.length === 0 ? (
-                        <p className="text-xs text-[var(--color-text-muted)] italic text-center py-8">Excelente: no hay saldos pendientes por recaudar.</p>
-                      ) : (
-                        pendingReports.map(report => (
-                          <div key={report.id} className="p-3 bg-[var(--color-surface-2)]/40 rounded-xl flex items-center justify-between border border-[var(--color-border)] text-xs">
-                            <div>
-                              <p className="font-bold text-[var(--color-text)]">{report.clientId}</p>
-                              <p className="text-[10px] text-[var(--color-text-muted)] font-mono">{report.periodo} • ${report.comisionValor.toLocaleString('es-CO')}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button 
-                                onClick={() => handleCopyReminder(report)}
-                                className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                                title="Copiar mensaje cobro WhatsApp"
-                              >
-                                <Mail size={13} />
-                                Recordatorio
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setActiveMetricModal(null)
-                                  handleTogglePayment(report)
-                                }}
-                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors cursor-pointer font-bold"
-                              >
-                                Registrar Pago
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {/* CASO 4: CLIENTES REGISTRADOS (MÓDULO CRM INTEGRAL) */}
-              {activeMetricModal === 'clientes' && (() => {
-                const uniqueClients = Object.values(clientAggregated)
-                
-                // Si hay un cliente seleccionado, mostrar su Portal/Ficha CRM
-                if (selectedCrmClientId) {
-                  const clientData = clientAggregated[selectedCrmClientId] || {
-                    name: selectedCrmClientId,
-                    totalSales: 0,
-                    totalCommission: 0,
-                    reportCount: 0,
-                    pendingCount: 0
-                  }
-                  const clientReports = reports.filter(r => r.clientId === selectedCrmClientId)
-                  const filteredClientReports = clientReports.filter(r => crmStatusFilter === 'todos' || r.estadoPago === crmStatusFilter)
-                  
-                  const handleSaveCrmConfig = async (clientId, updates) => {
-                    addLog(`[CRM] Guardando configuración para ${clientId}: ${JSON.stringify(updates)}...`, "info")
-                    
-                    if (isSimulated) {
-                      setClientesSaas(prev => {
-                        const exists = prev.some(c => c.id === clientId)
-                        if (exists) {
-                          return prev.map(c => c.id === clientId ? { ...c, ...updates } : c)
-                        } else {
-                          return [...prev, { id: clientId, ...updates }]
-                        }
-                      })
-                      addLog(`[Sandbox] Configuración actualizada en memoria local para ${clientId}.`, "success")
-                      showToast(`Configuración de ${clientId} guardada localmente`, { type: 'success' })
-                      return
-                    }
-
-                    const centralApp = getCentralApp()
-                    if (!centralApp) return
-                    const dbInstance = getFirestore(centralApp)
-
-                    try {
-                      const docRef = doc(dbInstance, 'clientes_saas', clientId)
-                      await setDoc(docRef, {
-                        ...updates,
-                        updatedAt: serverTimestamp()
-                      }, { merge: true })
-                      addLog(`[Firestore] Configuración guardada para ${clientId} en la nube.`, "success")
-                      showToast(`Configuración de ${clientId} actualizada`, { type: 'success' })
-                    } catch (err) {
-                      console.error("Error guardando configuración:", err)
-                      addLog(`Error al guardar configuración: ${err.message}`, "error")
-                      showToast(`Error al guardar configuración: ${err.message}`, { type: 'error' })
-                    }
-                  }
-
-                  const handleTriggerTelemetry = async () => {
-                    const testPeriod = new Date().toISOString().substring(0, 7)
-                    const reportId = `${selectedCrmClientId}_${testPeriod}`
-                    const sales = Math.floor(Math.random() * 8000000) + 2000000
-                    
-                    const clientConfig = clientesSaas.find(c => c.id === selectedCrmClientId) || {}
-                    const mode = clientConfig.billingMode || 'percentage'
-                    let comValue = 0
-                    let pctVal = 1.5
-                    
-                    if (mode === 'percentage') {
-                      pctVal = clientConfig.comisionPorcentaje !== undefined ? parseFloat(clientConfig.comisionPorcentaje) : 1.5
-                      comValue = (sales * pctVal) / 100
-                    } else if (mode === 'fixed_per_service') {
-                      const fixed = clientConfig.montoFijoServicio !== undefined ? parseFloat(clientConfig.montoFijoServicio) : 500
-                      comValue = fixed * 12 // Assume 12 transactions for test
-                    } else if (mode === 'flat_monthly') {
-                      comValue = clientConfig.pagoMensualFijo !== undefined ? parseFloat(clientConfig.pagoMensualFijo) : 50000
-                    }
-
-                    // Add DIAN billing cost to comisionValor if enabled
-                    let dianDocsCount = 0;
-                    if (clientConfig.enableDianBilling) {
-                      dianDocsCount = Math.floor(Math.random() * 80) + 20; // 20 to 100 documents
-                      const costPerDoc = clientConfig.costoPorFacturaDian !== undefined ? parseFloat(clientConfig.costoPorFacturaDian) : 150;
-                      comValue += (dianDocsCount * costPerDoc);
-                    }
-
-                    addLog(`Generando telemetría de prueba para ${selectedCrmClientId} ($${sales.toLocaleString()} Ventas, Modo: ${mode}${clientConfig.enableDianBilling ? `, DIAN: ${dianDocsCount} docs` : ''})`, "info", selectedCrmClientId)
-
-                    if (isSimulated) {
-                      const newRep = {
-                        id: reportId,
-                        clientId: selectedCrmClientId,
-                        periodo: testPeriod,
-                        totalVentas: sales,
-                        comisionPorcentaje: mode === 'percentage' ? pctVal : 0,
-                        comisionValor: comValue,
-                        dianDocsCount: dianDocsCount,
-                        estadoPago: 'pendiente',
-                        updatedAt: { toDate: () => new Date() }
-                      }
-                      setReports(prev => [newRep, ...prev.filter(r => r.id !== reportId)])
-                      addLog(`[Sandbox] Telemetría enviada para cliente ${selectedCrmClientId}.`, "success", selectedCrmClientId)
-                      showToast(`Telemetría enviada para ${selectedCrmClientId}`, { type: 'success' })
-                      return
-                    }
-
-                    const centralApp = getCentralApp()
-                    if (!centralApp) return
-                    const dbInstance = getFirestore(centralApp)
-
-                    try {
-                      const tokenDoc = telemetryTokens.find(t => t.clientId === selectedCrmClientId)
-                      const activeToken = tokenDoc ? tokenDoc.id : DEV_TOKEN
-                      const docRef = doc(dbInstance, 'reportesBilling', reportId)
-                      await setDoc(docRef, {
-                        clientId: selectedCrmClientId,
-                        token: activeToken,
-                        periodo: testPeriod,
-                        totalVentas: sales,
-                        comisionPorcentaje: mode === 'percentage' ? pctVal : 0,
-                        comisionValor: comValue,
-                        dianDocsCount: dianDocsCount,
-                        estadoPago: 'pendiente',
-                        updatedAt: serverTimestamp()
-                      })
-                      addLog(`[Firestore] Telemetría enviada con éxito para ${selectedCrmClientId} a la nube central.`, "success", selectedCrmClientId)
-                      showToast(`Telemetría enviada para ${selectedCrmClientId} a la nube`, { type: 'success' })
-                    } catch (err) {
-                      console.error("Error enviando telemetría:", err)
-                      addLog(`Error al enviar telemetría: ${err.message}`, "error")
-                      showToast(`Error al enviar telemetría: ${err.message}`, { type: 'error' })
-                    }
-                  }
-
-                  const handleCombinedWhatsAppNudge = () => {
-                    const pendingInvoices = clientReports.filter(r => (r.estadoPago || 'pendiente').toLowerCase() === 'pendiente')
-                    if (pendingInvoices.length === 0) {
-                      showToast('Cliente al día. Sin saldos por cobrar.', { type: 'success' })
-                      return
-                    }
-                    const totalPendingVal = pendingInvoices.reduce((sum, r) => sum + r.comisionValor, 0)
-                    const periodsText = pendingInvoices.map(r => r.periodo).join(', ')
-                    const msj = `Hola *${selectedCrmClientId}*, te recordamos que tienes *${pendingInvoices.length}* facturas de comisión pendientes correspondientes a los periodos [${periodsText}] por un total acumulado de *$${totalPendingVal.toLocaleString('es-CO')}*. Agradecemos tu valioso pago.`
-                    copy(msj)
-                    showToast('Mensaje de cobro combinado copiado', { type: 'success' })
-                  }
-
-                  return (
-                    <div className="space-y-5">
-                      {/* Cabecera Ficha */}
-                      <div className="flex items-center gap-3">
-                        <button 
-                          onClick={() => setSelectedCrmClientId(null)}
-                          className="px-2.5 py-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-xs font-bold rounded-xl border border-[var(--color-border)] cursor-pointer text-[var(--color-text)] transition-colors"
-                        >
-                          ← Volver al CRM
-                        </button>
-                        <span className="text-xs text-[var(--color-text-muted)] font-bold">Portal del Cliente</span>
-                      </div>
-
-                      {/* Info general */}
-                      <div className="p-4 bg-[var(--color-bg)] rounded-2xl border border-[var(--color-border)] grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div>
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">Ventas brutas</span>
-                          <p className="text-sm font-black font-mono text-[var(--color-text)]">${clientData.totalSales.toLocaleString('es-CO')}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">Comisión Total</span>
-                          <p className="text-sm font-black font-mono text-indigo-600 dark:text-indigo-400">${clientData.totalCommission.toLocaleString('es-CO')}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">Reportes</span>
-                          <p className="text-sm font-black text-[var(--color-text)]">{clientData.reportCount}</p>
-                        </div>
-                        <div>
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)]">Pendientes</span>
-                          <p className={`text-sm font-black font-mono ${clientData.pendingCount > 0 ? 'text-amber-500' : 'text-emerald-550'}`}>{clientData.pendingCount}</p>
-                        </div>
-                      </div>
-
-                      {/* Configuración SaaS */}
-                      <div className="p-4 bg-[var(--color-surface-2)]/40 rounded-2xl border border-[var(--color-border)] space-y-4">
-                        <h4 className="font-extrabold text-xs text-[var(--color-text)]">Configuración SaaS del Cliente</h4>
-                        
-                        {/* Selector de modo de facturación */}
-                        <div className="space-y-1">
-                          <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Modelo de Facturación</label>
-                          <CustomSelect
-                            value={clientesSaas.find(c => c.id === selectedCrmClientId)?.billingMode || 'percentage'}
-                            onChange={async (e) => {
-                              const newMode = e.target.value;
-                              await handleSaveCrmConfig(selectedCrmClientId, { billingMode: newMode });
-                            }}
-                            options={[
-                              { id: 'percentage', name: 'Porcentaje de Venta' },
-                              { id: 'fixed_per_service', name: 'Monto Fijo por Servicio' },
-                              { id: 'flat_monthly', name: 'Pago Mensual Fijo' }
-                            ]}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Inputs según el modo */}
-                          {(() => {
-                            const clientConfig = clientesSaas.find(c => c.id === selectedCrmClientId) || {};
-                            const mode = clientConfig.billingMode || 'percentage';
-                            
-                            if (mode === 'percentage') {
-                              return (
-                                <div className="space-y-1 sm:col-span-2">
-                                  <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Tasa de Comisión (%)</label>
-                                  <div className="flex gap-2">
-                                    <input 
-                                      type="number" 
-                                      step="0.1"
-                                      defaultValue={clientConfig.comisionPorcentaje !== undefined ? clientConfig.comisionPorcentaje : 1.5}
-                                      id="crm-comision-porcentaje"
-                                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--color-text)] outline-none flex-1 focus:border-indigo-500 font-mono"
-                                    />
-                                    <button 
-                                      onClick={async () => {
-                                        const el = document.getElementById('crm-comision-porcentaje');
-                                        const val = el ? parseFloat(el.value) : 1.5;
-                                        await handleSaveCrmConfig(selectedCrmClientId, { comisionPorcentaje: val });
-                                      }}
-                                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors"
-                                    >
-                                      Guardar
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            } else if (mode === 'fixed_per_service') {
-                              return (
-                                <div className="space-y-1 sm:col-span-2">
-                                  <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Monto Fijo por Servicio ($)</label>
-                                  <div className="flex gap-2">
-                                    <input 
-                                      type="number" 
-                                      defaultValue={clientConfig.montoFijoServicio !== undefined ? clientConfig.montoFijoServicio : 500}
-                                      id="crm-monto-fijo-servicio"
-                                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--color-text)] outline-none flex-1 focus:border-indigo-500 font-mono"
-                                    />
-                                    <button 
-                                      onClick={async () => {
-                                        const el = document.getElementById('crm-monto-fijo-servicio');
-                                        const val = el ? parseFloat(el.value) : 500;
-                                        await handleSaveCrmConfig(selectedCrmClientId, { montoFijoServicio: val });
-                                      }}
-                                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors"
-                                    >
-                                      Guardar
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            } else if (mode === 'flat_monthly') {
-                              return (
-                                <div className="space-y-1 sm:col-span-2">
-                                  <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Pago Mensual Fijo ($)</label>
-                                  <div className="flex gap-2">
-                                    <input 
-                                      type="number" 
-                                      defaultValue={clientConfig.pagoMensualFijo !== undefined ? clientConfig.pagoMensualFijo : 50000}
-                                      id="crm-pago-mensual-fijo"
-                                      className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--color-text)] outline-none flex-1 focus:border-indigo-500 font-mono"
-                                    />
-                                    <button 
-                                      onClick={async () => {
-                                        const el = document.getElementById('crm-pago-mensual-fijo');
-                                        const val = el ? parseFloat(el.value) : 50000;
-                                        await handleSaveCrmConfig(selectedCrmClientId, { pagoMensualFijo: val });
-                                      }}
-                                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors"
-                                    >
-                                      Guardar
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-
-                          {/* Facturación Electrónica DIAN */}
-                          <div className="sm:col-span-2 border-t border-[var(--color-border)]/50 pt-3 mt-1 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <label className="text-[9px] uppercase font-bold text-[var(--color-text)] block">Facturación DIAN</label>
-                                <span className="text-[8px] text-[var(--color-text-muted)]">Habilita módulo DIAN y cobro por documento.</span>
-                              </div>
-                              <input 
-                                type="checkbox" 
-                                checked={clientesSaas.find(c => c.id === selectedCrmClientId)?.enableDianBilling || false}
-                                onChange={async (e) => {
-                                  await handleSaveCrmConfig(selectedCrmClientId, { enableDianBilling: e.target.checked });
-                                }}
-                                className="w-4 h-4 text-indigo-650 bg-[var(--color-bg)] border-[var(--color-border)] rounded-md focus:ring-indigo-500 cursor-pointer"
-                              />
-                            </div>
-                            
-                            {clientesSaas.find(c => c.id === selectedCrmClientId)?.enableDianBilling && (
-                              <div className="space-y-1 animate-fade-in">
-                                <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Costo Por Factura DIAN ($)</label>
-                                <div className="flex gap-2">
-                                  <input 
-                                    type="number" 
-                                    defaultValue={clientesSaas.find(c => c.id === selectedCrmClientId)?.costoPorFacturaDian !== undefined ? clientesSaas.find(c => c.id === selectedCrmClientId)?.costoPorFacturaDian : 150}
-                                    id="crm-costo-dian"
-                                    className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-1.5 text-xs text-[var(--color-text)] outline-none flex-1 focus:border-indigo-500 font-mono"
-                                  />
-                                  <button 
-                                    onClick={async () => {
-                                      const el = document.getElementById('crm-costo-dian');
-                                      const val = el ? parseFloat(el.value) : 150;
-                                      await handleSaveCrmConfig(selectedCrmClientId, { costoPorFacturaDian: val });
-                                    }}
-                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors"
-                                  >
-                                    Guardar
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Token */}
-                          <div className="sm:col-span-2">
-                            <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Token de Telemetría</label>
-                            <p className="text-[10px] font-mono text-[var(--color-text-muted)] truncate bg-[var(--color-bg)] p-2 rounded-xl border border-[var(--color-border)] mt-1">
-                              {telemetryTokens.find(t => t.clientId === selectedCrmClientId)?.id || `${selectedCrmClientId}-token-development`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Acciones de cobro consolidado y simulación */}
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          <button 
-                            onClick={handleCombinedWhatsAppNudge}
-                            className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5"
-                          >
-                            <Mail size={13} />
-                            Copiar Recordatorio Integrado WhatsApp
-                          </button>
-                          <button 
-                            onClick={handleTriggerTelemetry}
-                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5"
-                          >
-                            <Database size={13} />
-                            Simular Transmisión de Envío
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Historial específico de este cliente */}
-                      <div className="space-y-3">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--color-border)]/50 pb-2">
-                          <h4 className="font-extrabold text-xs text-[var(--color-text)]">Historial de Reportes del Cliente</h4>
-                          <div className="flex bg-[var(--color-bg)] border border-[var(--color-border)] p-0.5 rounded-lg text-[9px] font-bold shadow-sm self-start sm:self-auto transition-colors duration-300">
-                            {[
-                              { id: 'todos', label: 'Todos' },
-                              { id: 'pendiente', label: 'Pendientes' },
-                              { id: 'pagado', label: 'Pagados' }
-                            ].map(tab => (
-                              <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => setCrmStatusFilter(tab.id)}
-                                className={`px-2 py-1 rounded-md uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                                  crmStatusFilter === tab.id 
-                                    ? 'bg-indigo-600 text-white shadow-sm' 
-                                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                                }`}
-                              >
-                                {tab.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2 max-h-[25vh] overflow-y-auto">
-                          {filteredClientReports.length === 0 ? (
-                            <p className="text-[10px] text-[var(--color-text-muted)] italic text-center py-6">Ningún reporte coincide con el filtro seleccionado.</p>
-                          ) : (
-                            filteredClientReports.map(report => (
-                              <div key={report.id} className="p-3 bg-[var(--color-surface-2)]/30 rounded-xl flex items-center justify-between border border-[var(--color-border)] text-xs">
-                                <div>
-                                  <span className="font-bold text-[var(--color-text)] font-mono">{report.periodo}</span>
-                                  <span className="text-[10px] text-[var(--color-text-muted)] ml-2">Ventas: ${report.totalVentas.toLocaleString('es-CO')}</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">${report.comisionValor.toLocaleString('es-CO')}</span>
-                                  <button 
-                                    onClick={() => handleTogglePayment(report)}
-                                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-colors cursor-pointer ${
-                                      report.estadoPago === 'pagado'
-                                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                                    }`}
-                                  >
-                                    {report.estadoPago === 'pagado' ? 'Pagado' : 'Pendiente'}
-                                  </button>
-                                  <button 
-                                    onClick={() => exportCommissionReceiptPDF(report)}
-                                    className="p-1.5 bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] rounded-lg cursor-pointer"
-                                    title="PDF"
-                                  >
-                                    <Download size={12} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-
-                const filteredCrmClients = uniqueClients.filter(c => c.name.toLowerCase().includes(crmSearch.toLowerCase()))
-
-                // Sumar totales globales CRM
-                const totalGlobalSales = uniqueClients.reduce((sum, c) => sum + c.totalSales, 0)
-                const totalGlobalCommissions = uniqueClients.reduce((sum, c) => sum + c.totalCommission, 0)
-                const totalGlobalPending = reports.reduce((sum, r) => (r.estadoPago || 'pendiente').toLowerCase() === 'pendiente' ? sum + r.comisionValor : sum, 0)
-
-                return (
-                  <div className="space-y-4">
-                    {/* Tarjetas Analíticas del CRM */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 bg-[var(--color-surface-2)]/30 rounded-xl border border-[var(--color-border)] text-center">
-                        <span className="text-[8px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Ventas Globales</span>
-                        <span className="text-xs font-black font-mono text-[var(--color-text)]">${totalGlobalSales.toLocaleString('es-CO')}</span>
-                      </div>
-                      <div className="p-3 bg-[var(--color-surface-2)]/30 rounded-xl border border-[var(--color-border)] text-center">
-                        <span className="text-[8px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Comisión Recaudada</span>
-                        <span className="text-xs font-black font-mono text-emerald-600 dark:text-emerald-400">${(totalGlobalCommissions - totalGlobalPending).toLocaleString('es-CO')}</span>
-                      </div>
-                      <div className="p-3 bg-[var(--color-surface-2)]/30 rounded-xl border border-[var(--color-border)] text-center">
-                        <span className="text-[8px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Saldo Pendiente</span>
-                        <span className="text-xs font-black font-mono text-amber-500">${totalGlobalPending.toLocaleString('es-CO')}</span>
-                      </div>
-                    </div>
-
-                    {/* Nuevo Aprovisionamiento y Onboarding CTA */}
-                    <div className="p-5 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex flex-col items-center text-center gap-3">
-                      <div className="p-3 bg-indigo-500/20 text-indigo-400 rounded-full">
-                        <Plus size={20} />
+              {/* Contenido CRM existente — modal de métrica reutilizado inline */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] px-3.5 py-2.5 rounded-xl shadow-sm focus-within:border-indigo-500/50 transition-all">
+                  <Search size={14} className="text-slate-500 shrink-0" />
+                  <input type="text" placeholder="Buscar cliente..." value={crmSearch} onChange={e => setCrmSearch(e.target.value)}
+                    className="bg-transparent border-0 outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:ring-0" />
+                </div>
+                {/* Lista de clientes */}
+                {Object.values(clientAggregated).filter(c => c.name.toLowerCase().includes(crmSearch.toLowerCase())).map(client => (
+                  <div key={client.name} className="bg-[var(--color-surface)] p-4 rounded-2xl border border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-indigo-500/30 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 font-black flex items-center justify-center text-sm border border-indigo-500/20">
+                        {client.name.substring(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-sm text-[var(--color-text)]">Nuevo Aprovisionamiento y Onboarding</h4>
-                        <p className="text-xs text-[var(--color-text-muted)] mt-1">Configura el entorno de servidor, branding visual y módulos de un nuevo cliente a pantalla completa.</p>
+                        <p className="font-bold text-sm text-[var(--color-text)]">{client.name}</p>
+                        <p className="text-[10px] text-[var(--color-text-muted)]">{client.reportCount} reportes · {client.pendingCount} pendientes</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setActiveMetricModal(null);
-                          setIsOnboardingActive(true);
-                        }}
-                        className="px-4 py-2 bg-indigo-650 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                      >
-                        Iniciar Aprovisionamiento
+                    </div>
+                    <div className="flex items-center gap-6 text-center">
+                      <div>
+                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Ventas</span>
+                        <span className="text-xs font-black font-mono text-[var(--color-text)]">${client.totalSales.toLocaleString('es-CO')}</span>
+                      </div>
+                      <div>
+                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Comisión</span>
+                        <span className="text-xs font-black font-mono text-indigo-600 dark:text-indigo-400">${client.totalCommission.toLocaleString('es-CO')}</span>
+                      </div>
+                      <button onClick={() => { setSelectedCrmClientId(client.name); setActiveMetricModal('clientes') }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-sm">
+                        Gestionar
+                        <ChevronRight size={12} />
                       </button>
                     </div>
+                  </div>
+                ))}
+                {Object.values(clientAggregated).filter(c => c.name.toLowerCase().includes(crmSearch.toLowerCase())).length === 0 && (
+                  <div className="p-12 text-center text-slate-500 text-xs">No hay clientes que coincidan con la búsqueda.</div>
+                )}
+              </div>
+            </div>
+          )}
 
-                    {/* Buscador de clientes */}
-                    <div className="flex items-center gap-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] px-3.5 py-2 rounded-xl shadow-sm focus-within:border-indigo-500/50 transition-all transition-colors duration-300">
-                      <Search size={14} className="text-slate-500" />
-                      <input 
-                        type="text" 
-                        placeholder="Buscar cliente en el CRM..."
-                        value={crmSearch}
-                        onChange={(e) => setCrmSearch(e.target.value)}
-                        className="bg-transparent border-0 outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:ring-0"
-                      />
+          {/* ===== TAB: BILLING ===== */}
+          {activeTab === 'billing' && (
+            <div className="space-y-6 tab-content-enter">
+              <div>
+                <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
+                  <CreditCard size={20} className="text-emerald-400" />
+                  Facturación y Cobros
+                </h1>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Consolidado de comisiones, estado de pagos y herramientas de cobro.</p>
+              </div>
+
+              {/* Listado de reportes */}
+              <div className="bg-[var(--color-surface)] rounded-2xl overflow-hidden shadow-sm border border-[var(--color-border)] transition-colors duration-300">
+                <div className="p-5 border-b border-[var(--color-border)] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <h3 className="font-extrabold text-sm flex items-center gap-2 text-[var(--color-text)]">
+                    <Layers size={15} className="text-indigo-400" />
+                    Consolidado Mensual
+                  </h3>
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
+                    <div className="flex items-center gap-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] px-3.5 py-2 rounded-xl w-full sm:w-56 shadow-sm focus-within:border-indigo-500/50 transition-all">
+                      <Search size={13} className="text-slate-500" />
+                      <input type="text" placeholder="Buscar cliente o periodo..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                        className="bg-transparent border-0 outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)] focus:ring-0" />
                     </div>
-                    
-                    {/* Lista del Directorio CRM */}
-                    <div className="space-y-2 max-h-[30vh] overflow-y-auto">
-                      {filteredCrmClients.map(client => (
-                        <div key={client.name} className="p-3 bg-[var(--color-surface-2)]/40 rounded-xl flex items-center justify-between border border-[var(--color-border)] text-xs">
-                          <div>
-                            <p className="font-bold text-[var(--color-text)]">{client.name}</p>
-                            <p className="text-[10px] text-[var(--color-text-muted)]">
-                              {client.reportCount} {client.reportCount === 1 ? 'reporte' : 'reportes'} • {client.pendingCount} pend.
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => setSelectedCrmClientId(client.name)}
-                              className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors cursor-pointer text-[10px] font-bold flex items-center gap-1 shadow-sm"
-                            >
-                              Gestionar en CRM
-                            </button>
-                          </div>
-                        </div>
+                    <div className="flex bg-[var(--color-bg)] border border-[var(--color-border)] p-1 rounded-xl shadow-sm">
+                      {['todos', 'pendiente', 'pagado'].map(f => (
+                        <button key={f} onClick={() => setStatusFilter(f)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                            statusFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                          }`}>{f === 'todos' ? 'Todos' : f === 'pendiente' ? 'Pendientes' : 'Pagados'}
+                        </button>
                       ))}
                     </div>
                   </div>
-                )
-              })()}
-            </div>
+                </div>
+                {isLoading ? (
+                  <div className="p-16 text-center text-slate-400 text-xs space-y-3">
+                    <RefreshCw size={22} className="mx-auto animate-spin text-indigo-400" />
+                    <p className="font-semibold uppercase tracking-wider text-[10px]">Cargando datos...</p>
+                  </div>
+                ) : filteredReports.length === 0 ? (
+                  <div className="p-16 text-center text-slate-500 text-xs">Ningún reporte coincide con los filtros.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] bg-[var(--color-surface-2)]/70 font-bold">
+                          <th className="p-4 pl-5 uppercase tracking-wider text-[10px]">App Cliente</th>
+                          <th className="p-4 uppercase tracking-wider text-[10px]">Periodo</th>
+                          <th className="p-4 text-right uppercase tracking-wider text-[10px]">Ventas</th>
+                          <th className="p-4 text-center uppercase tracking-wider text-[10px]">Tarifa</th>
+                          <th className="p-4 text-right uppercase tracking-wider text-[10px]">Comisión</th>
+                          <th className="p-4 text-center uppercase tracking-wider text-[10px]">Estado</th>
+                          <th className="p-4 pr-5 text-right uppercase tracking-wider text-[10px]">Transmisión</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-border)]">
+                        {filteredReports.map(report => (
+                          <tr key={report.id} onClick={() => setSelectedReport(report)}
+                            className={`hover:bg-[var(--color-surface-2)]/40 transition-colors cursor-pointer group ${
+                              selectedReport && selectedReport.id === report.id ? 'bg-[var(--color-surface-2)]/60' : ''
+                            }`}>
+                            <td className="p-4 pl-5 font-bold text-indigo-600 dark:text-indigo-400 group-hover:text-indigo-500 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-1.5 h-1.5 rounded-full ${report.estadoPago === 'pagado' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                {report.clientId}
+                              </div>
+                            </td>
+                            <td className="p-4 font-mono font-bold text-[var(--color-text)] opacity-90">{report.periodo}</td>
+                            <td className="p-4 text-right font-mono text-[var(--color-text)]">${report.totalVentas.toLocaleString('es-CO')}</td>
+                            <td className="p-4 text-center font-bold text-[var(--color-text-muted)]">
+                              {(() => {
+                                const cfg = clientesSaas.find(c => c.id === report.clientId)
+                                const mode = cfg?.billingMode || 'percentage'
+                                if (mode === 'fixed_per_service') return `$${(cfg?.montoFijoServicio || 500).toLocaleString('es-CO')} c/u`
+                                if (mode === 'flat_monthly') return `$${((cfg?.pagoMensualFijo || 50000) / 1000).toFixed(0)}k/mes`
+                                return `${report.comisionPorcentaje || cfg?.comisionPorcentaje || 1.5}%`
+                              })()}
+                            </td>
+                            <td className="p-4 text-right font-mono font-extrabold text-indigo-600 dark:text-indigo-300">${report.comisionValor.toLocaleString('es-CO')}</td>
+                            <td className="p-4 text-center" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => handleTogglePayment(report)}
+                                className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all duration-300 cursor-pointer flex items-center gap-1.5 mx-auto ${
+                                  report.estadoPago === 'pagado'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
+                                }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${report.estadoPago === 'pagado' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                {report.estadoPago === 'pagado' ? 'Pagado' : 'Pendiente'}
+                              </button>
+                            </td>
+                            <td className="p-4 pr-5 text-right font-mono text-[10px] text-[var(--color-text-muted)] opacity-80">
+                              {report.updatedAt?.toDate ? report.updatedAt.toDate().toLocaleDateString('es-CO') : 'Reciente'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
 
-            {/* Footer */}
-            <div className="pt-4 border-t border-[var(--color-border)] flex justify-end shrink-0">
-              <button
-                onClick={() => setActiveMetricModal(null)}
-                className="px-4 py-2 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] rounded-xl text-xs font-bold border border-[var(--color-border)] cursor-pointer"
-              >
-                Cerrar
-              </button>
+              {/* GESTOR DE PLANTILLAS WHATSAPP */}
+              <div className="bg-[var(--color-surface)] p-6 rounded-2xl shadow-sm border border-[var(--color-border)] transition-colors duration-300">
+                <div className="mb-5">
+                  <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-wider">Herramienta de Cobro</span>
+                  <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2 mt-0.5">
+                    <MessageSquare size={16} className="text-emerald-400" />
+                    Gestor de Plantillas WhatsApp
+                  </h3>
+                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">Personaliza y envía recordatorios de cobro con campos dinámicos a tus clientes.</p>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Panel Izquierdo: Configuración */}
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Plantilla</label>
+                      <div className="flex bg-[var(--color-bg)] border border-[var(--color-border)] p-1 rounded-xl gap-1 flex-wrap">
+                        {waTemplates.map(t => (
+                          <button key={t.id} onClick={() => setSelectedWaTemplate(t.id)}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              selectedWaTemplate === t.id ? 'bg-emerald-600 text-white shadow-md' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                            }`}>{t.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Cliente ({'{cliente}'})</label>
+                        <CustomSelect
+                          value={waClientId}
+                          onChange={e => setWaClientId(e.target.value)}
+                          options={[{ id: '', name: '-- Seleccionar --' }, ...Object.keys(clientAggregated).map(k => ({ id: k, name: k }))]}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Periodo ({'{periodo}'})</label>
+                        <input type="month" value={waPeriodo} onChange={e => setWaPeriodo(e.target.value)}
+                          className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-emerald-500 w-full" />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Comisión Manual ({'{comision}'}) <span className="font-normal">— Opcional, se auto-calcula si está vacío</span></label>
+                        <input type="text" placeholder="Ej: 102,750 (dejar vacío para auto-calcular)" value={waComision} onChange={e => setWaComision(e.target.value)}
+                          className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-emerald-500 w-full font-mono" />
+                      </div>
+                    </div>
+                    {/* Editor de plantilla */}
+                    {editingTemplate === selectedWaTemplate ? (
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Editar cuerpo de la plantilla</label>
+                        <textarea rows={4} value={editingTemplateBody} onChange={e => setEditingTemplateBody(e.target.value)}
+                          className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-emerald-500 w-full resize-none font-mono" />
+                        <div className="flex gap-2">
+                          <button onClick={() => {
+                              setWaTemplates(prev => prev.map(t => t.id === editingTemplate ? { ...t, body: editingTemplateBody } : t))
+                              setEditingTemplate(null)
+                              showToast('Plantilla actualizada', { type: 'success' })
+                            }}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold cursor-pointer transition-colors">Guardar</button>
+                          <button onClick={() => setEditingTemplate(null)}
+                            className="px-3 py-1.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text-muted)] rounded-xl text-[10px] font-bold cursor-pointer border border-[var(--color-border)] transition-colors">Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setEditingTemplate(selectedWaTemplate); setEditingTemplateBody(waTemplates.find(t => t.id === selectedWaTemplate)?.body || '') }}
+                        className="text-[10px] font-bold text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer underline">
+                        Editar texto de esta plantilla
+                      </button>
+                    )}
+                  </div>
+                  {/* Panel Derecho: Preview + Acciones */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block mb-2">Vista Previa del Mensaje</label>
+                      <div className="bg-[#075E54]/10 border border-[#075E54]/20 rounded-2xl p-4 min-h-[120px] relative">
+                        <div className="absolute top-3 right-3 w-5 h-5 bg-[#25D366]/20 rounded-full flex items-center justify-center">
+                          <MessageSquare size={10} className="text-[#25D366]" />
+                        </div>
+                        <p className="text-xs text-[var(--color-text)] leading-relaxed whitespace-pre-wrap font-sans">
+                          {getWaPreview() || <span className="text-[var(--color-text-muted)] italic">Selecciona un cliente para ver la vista previa...</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button onClick={handleSendWhatsApp}
+                        className="w-full py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.98] shadow-[0_0_15px_rgba(37,211,102,0.2)]">
+                        <Send size={13} />
+                        Abrir en WhatsApp
+                      </button>
+                      <button onClick={handleCopyWaMessage}
+                        className="w-full py-2.5 bg-[var(--color-surface-2)] hover:bg-[var(--color-border)] text-[var(--color-text)] rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border border-[var(--color-border)] active:scale-[0.98]">
+                        <Copy size={13} />
+                        Copiar Mensaje
+                      </button>
+                    </div>
+                    <div className="p-3 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl">
+                      <p className="text-[9px] text-[var(--color-text-muted)] font-mono leading-relaxed">
+                        Variables disponibles: <span className="text-indigo-400">{'{cliente}'}</span> · <span className="text-indigo-400">{'{periodo}'}</span> · <span className="text-indigo-400">{'{comision}'}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          )}
+
+          {/* ===== TAB: ONBOARDING ===== */}
+          {activeTab === 'onboarding' && (
+            <div className="tab-content-enter">
+              {/* Reutilizar el wizard completo */}
+              {isOnboardingActive ? (
+                <div className="text-center text-xs text-[var(--color-text-muted)] p-8">El asistente de aprovisionamiento está activo en la vista de pantalla completa.</div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
+                      <Sparkles size={20} className="text-indigo-400" />
+                      Nuevo Cliente
+                    </h1>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Aprovisiona, configura y despliega una nueva instancia de aplicación para un cliente.</p>
+                  </div>
+                  <button onClick={() => setIsOnboardingActive(true)}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-sm font-bold flex items-center gap-2 transition-all shadow-[0_0_25px_rgba(99,102,241,0.3)] active:scale-[0.98] cursor-pointer">
+                    <Sparkles size={16} />
+                    Iniciar Asistente de Aprovisionamiento
+                  </button>
+                  <p className="text-[10px] text-[var(--color-text-muted)]">El asistente te guiará paso a paso a través de la configuración del servidor, branding y módulos.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ===== TAB: SETTINGS ===== */}
+          {activeTab === 'settings' && (
+            <div className="space-y-6 tab-content-enter">
+              <div>
+                <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
+                  <Settings size={20} className="text-slate-400" />
+                  Configuración del Sistema
+                </h1>
+                <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Ajustes globales de la consola central.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="bg-[var(--color-surface)] p-5 rounded-2xl border border-[var(--color-border)] space-y-4">
+                  <h3 className="font-extrabold text-sm text-[var(--color-text)]">Entorno y Telemetría</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-[var(--color-text)]">Modo de Ejecución</p>
+                        <p className="text-[10px] text-[var(--color-text-muted)]">Sandbox no afecta datos reales</p>
+                      </div>
+                      <button onClick={() => { setIsSimulated(p => !p); addLog(`Modo: ${!isSimulated ? 'SANDBOX' : 'CONECTADO'}`, 'warning') }}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold cursor-pointer transition-all ${
+                          isSimulated ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                        {isSimulated ? 'Sandbox' : 'Conectado'}
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold text-[var(--color-text)]">Tema de Interfaz</p>
+                        <p className="text-[10px] text-[var(--color-text-muted)]">Modo oscuro o claro</p>
+                      </div>
+                      <DarkModeToggle isDark={theme === 'dark'} onToggle={toggleTheme} />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-[var(--color-surface)] p-5 rounded-2xl border border-[var(--color-border)] space-y-4">
+                  <h3 className="font-extrabold text-sm text-[var(--color-text)]">Sesión</h3>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-[var(--color-bg)] rounded-xl border border-[var(--color-border)]">
+                      <p className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Autenticado como</p>
+                      <p className="text-sm font-bold text-[var(--color-text)] mt-0.5">{user.email}</p>
+                      <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider mt-0.5">Root Developer</p>
+                    </div>
+                    <button onClick={handleLogout}
+                      className="w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98]">
+                      <LogOut size={13} />
+                      Cerrar Sesión
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {/* Logs completos */}
+              <div className="bg-[var(--color-surface)] p-5 rounded-2xl border border-[var(--color-border)]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-extrabold text-sm text-[var(--color-text)] flex items-center gap-2">
+                    <Terminal size={15} className="text-indigo-400" />
+                    Consola del Sistema
+                  </h3>
+                  <button onClick={() => { setSystemLogs([]); setLogPage(1) }} className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">Limpiar</button>
+                </div>
+                <div className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-3 h-[300px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
+                  {systemLogs.length === 0 ? (
+                    <div className="text-[var(--color-text-muted)] italic text-xs text-center my-auto">Sin transmisiones registradas.</div>
+                  ) : (
+                    systemLogs.map((log, index) => {
+                      const cardStyle = { info: 'bg-[var(--color-surface-2)]/45 text-[var(--color-text-muted)] border-[var(--color-border)]', warning: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20', error: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20', success: 'bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' }[log.type]
+                      return (
+                        <div key={index} className={`p-2 rounded-xl border ${cardStyle} text-[10px] flex flex-col gap-0.5`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-bold uppercase">{log.type}</span>
+                            <span className="text-[8px] text-[var(--color-text-muted)] font-mono">{log.timestamp}</span>
+                          </div>
+                          <p className="font-mono leading-relaxed break-words">{log.message}</p>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           </div>
+        </main>
+      </div>
+
+      {/* BOTTOM NAVIGATION - Móvil */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-xl pb-safe animate-slide-up">
+        <div className="flex items-center justify-around px-2 py-1.5">
+          {NAV_TABS.map(tab => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                id={`bottom-tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 cursor-pointer min-w-[52px] ${
+                  isActive ? 'text-indigo-400' : 'text-[var(--color-text-muted)]'
+                }`}
+              >
+                <div className={`p-1.5 rounded-lg transition-all duration-200 ${
+                  isActive ? 'bg-indigo-500/15 shadow-[0_0_12px_rgba(99,102,241,0.2)]' : ''
+                }`}>
+                  <Icon size={18} />
+                </div>
+                <span className={`text-[9px] font-bold tracking-wide transition-all ${
+                  isActive ? 'text-indigo-400' : 'text-[var(--color-text-muted)]'
+                }`}>{tab.shortLabel}</span>
+                {isActive && <div className="w-4 h-0.5 bg-indigo-400 rounded-full" />}
+              </button>
+            )
+          })}
         </div>
-      )}
+      </nav>
+
 
       {/* Modal de Onboarding / Checklist */}
       {onboardingData && (
@@ -3361,7 +2883,7 @@ export default function App() {
                   <label key={step.id} className="flex items-start gap-2.5 cursor-pointer select-none text-[var(--color-text)]">
                     <input 
                       type="checkbox" 
-                      className="w-4 h-4 rounded accent-indigo-650 bg-[var(--color-bg)] border border-[var(--color-border)] mt-0.5"
+                      className="w-4 h-4 rounded accent-indigo-600 bg-[var(--color-bg)] border border-[var(--color-border)] mt-0.5"
                     />
                     <span>{step.label}</span>
                   </label>
@@ -3414,7 +2936,7 @@ export default function App() {
                 
                 <div className="space-y-2.5 text-xs">
                   <div className="p-3 bg-[var(--color-surface-2)]/30 border border-[var(--color-border)] rounded-xl flex gap-3 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-indigo-650/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
+                    <span className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
                     <div className="space-y-1 flex-1 min-w-0">
                       <p className="font-bold text-[var(--color-text)]">Configurar archivo `.env.local`</p>
                       <p className="text-[11px] text-[var(--color-text-muted)]">Agrega el token generado y el Client ID en el archivo local de la instancia del cliente:</p>
@@ -3426,7 +2948,7 @@ VITE_DEVELOPER_CLIENT_ID=${onboardingData.clientId}`}
                   </div>
 
                   <div className="p-3 bg-[var(--color-surface-2)]/30 border border-[var(--color-border)] rounded-xl flex gap-3 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-indigo-650/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+                    <span className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
                     <div className="space-y-1 flex-1 min-w-0">
                       <p className="font-bold text-[var(--color-text)]">Configurar archivo `.firebaserc`</p>
                       <p className="text-[11px] text-[var(--color-text-muted)]">Asegúrate de vincular el proyecto correcto de Firebase en la configuración local de la CLI:</p>
@@ -3441,7 +2963,7 @@ VITE_DEVELOPER_CLIENT_ID=${onboardingData.clientId}`}
                   </div>
 
                   <div className="p-3 bg-[var(--color-surface-2)]/30 border border-[var(--color-border)] rounded-xl flex gap-3 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-indigo-650/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
+                    <span className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
                     <div className="space-y-1 flex-1 min-w-0">
                       <p className="font-bold text-[var(--color-text)]">Configurar `public/firebase-messaging-sw.js` y VAPID Key</p>
                       <p className="text-[11px] text-[var(--color-text-muted)]">Establece las credenciales correspondientes de Firebase Messaging en el Service Worker. Tu clave VAPID pública es:</p>
