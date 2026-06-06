@@ -203,18 +203,18 @@ select option {
 }
 
 /* Estilos de contraste y foco para controles de entrada en modo claro */
-:root.light input[type="text"], 
-:root.light input[type="number"], 
-:root.light input[type="password"], 
-:root.light textarea {
+:root.light input[type="text"]:not(.bg-transparent), 
+:root.light input[type="number"]:not(.bg-transparent), 
+:root.light input[type="password"]:not(.bg-transparent), 
+:root.light textarea:not(.bg-transparent) {
   border-color: rgba(0, 0, 0, 0.16) !important;
   background-color: rgba(0, 0, 0, 0.02) !important;
 }
 
-:root.light input[type="text"]:focus, 
-:root.light input[type="number"]:focus, 
-:root.light input[type="password"]:focus, 
-:root.light textarea:focus {
+:root.light input[type="text"]:not(.bg-transparent):focus, 
+:root.light input[type="number"]:not(.bg-transparent):focus, 
+:root.light input[type="password"]:not(.bg-transparent):focus, 
+:root.light textarea:not(.bg-transparent):focus {
   border-color: var(--color-primary) !important;
   background-color: var(--color-surface) !important;
   box-shadow: 0 0 0 1px var(--color-primary) !important;

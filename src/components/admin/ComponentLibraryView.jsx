@@ -259,7 +259,7 @@ export default function ComponentLibraryView({ showToast }) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('http://localhost:3001/api/library');
+      const res = await fetch(`http://localhost:3001/api/library?_t=${Date.now()}`);
       if (!res.ok) throw new Error('El CLI Daemon no está respondiendo en el puerto 3001.');
       const data = await res.json();
       if (data.success) {
@@ -285,7 +285,7 @@ export default function ComponentLibraryView({ showToast }) {
       try {
         setLoadingContent(true);
         setComponentContent('');
-        const res = await fetch(`http://localhost:3001/api/library/file?fileUri=${encodeURIComponent(selectedComponent.link)}`);
+        const res = await fetch(`http://localhost:3001/api/library/file?fileUri=${encodeURIComponent(selectedComponent.link)}&_t=${Date.now()}`);
         if (!res.ok) throw new Error('Error al obtener el archivo del componente.');
         const data = await res.json();
         if (data.success) {
@@ -392,7 +392,7 @@ export default function ComponentLibraryView({ showToast }) {
                     setSandboxFilter('all');
                   }
                 }}
-                className="bg-transparent border-0 outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)]"
+                className="bg-transparent border-0 outline-none focus:outline-none focus:ring-0 focus-visible:outline-none text-xs w-full text-[var(--color-text)] placeholder-[var(--color-text-muted)]"
               />
               {searchTerm && (
                 <button onClick={() => setSearchTerm('')} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer">
