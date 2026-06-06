@@ -4,8 +4,9 @@ import {
   FileText, Play, Code2, ChevronRight, Package, Sparkles,
   X, AlertTriangle, Check, Layers, Zap, Hash, List, Eye
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import useCopyToClipboard from '../../hooks/useCopyToClipboard';
-import ComponentSandbox, { COMPONENT_SANDBOX_MAP } from './ComponentSandbox';
+import ComponentSandbox, { COMPONENT_SANDBOX_MAP, getSandboxKey } from './ComponentSandbox';
 
 // ─── Constantes ────────────────────────────────────────────────────────────────
 const DETAIL_TABS = [
@@ -242,7 +243,6 @@ function extractAllCodeBlocks(md) {
   return blocks.length > 0 ? blocks.join('\n\n// ──────────────────────────────\n\n') : null;
 }
 
-// ─── Componente Principal ─────────────────────────────────────────────────────
 export default function ComponentLibraryView({ showToast }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -253,8 +253,24 @@ export default function ComponentLibraryView({ showToast }) {
   const [loadingContent, setLoadingContent] = useState(false);
   const [activeTab, setActiveTab] = useState('docs');
   const [sandboxFilter, setSandboxFilter] = useState('all'); // 'all' | 'sandbox' | 'docs'
+  const [expandedCats, setExpandedCats] = useState({});
 
-  // ── Carga del catálogo ──
+  const toggleCategory = useCallback((name) => {
+    setExpandedCats(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }));
+  }, []);
+
+  // Auto-expandir la categoría del componente seleccionado
+  useEffect(() => {
+    if (selectedComponent && selectedComponent.category) {
+      setExpandedCats(prev => ({
+        ...prev,
+        [selectedComponent.category]: true
+      }));
+    }
+  }, [selectedComponent]);
   const fetchLibrary = async () => {
     try {
       setLoading(true);
@@ -311,8 +327,7 @@ export default function ComponentLibraryView({ showToast }) {
         const matchesSearch = `${comp.name} ${comp.technicalName} ${comp.description} ${comp.category}`
           .toLowerCase().includes(searchTerm.toLowerCase());
         
-        const nameKey = comp.name ? comp.name.toLowerCase().trim() : '';
-        const hasSandbox = COMPONENT_SANDBOX_MAP[nameKey] !== undefined;
+        const hasSandbox = getSandboxKey(comp.name, comp.technicalName) !== null;
 
         if (sandboxFilter === 'sandbox') return matchesSearch && hasSandbox;
         if (sandboxFilter === 'docs') return matchesSearch && !hasSandbox;
@@ -457,58 +472,87 @@ export default function ComponentLibraryView({ showToast }) {
                     </p>
                   </div>
                 ) : (
-                  filteredCategories.map(cat => (
-                    <div key={cat.name} className="space-y-0.5">
-                      {/* Categoría */}
-                      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-indigo-400 tracking-wider px-2 py-1.5 bg-indigo-500/5 rounded-lg">
-                        <Folder size={10} />
-                        <span className="truncate">{cat.name}</span>
-                        <span className="ml-auto bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded-full text-[8px] font-black shrink-0">
-                          {cat.components.length}
-                        </span>
-                      </div>
+                  filteredCategories.map(cat => {
+                    const isExpanded = !!expandedCats[cat.name] || !!searchTerm;
+                    return (
+                      <div key={cat.name} className="space-y-1">
+                        {/* Selector Desplegable Premium de Categoría */}
+                        <button
+                          onClick={() => toggleCategory(cat.name)}
+                          className="w-full flex items-center gap-2 text-[9px] font-black uppercase text-indigo-400 tracking-wider px-2.5 py-2 bg-[var(--color-surface-2)]/60 hover:bg-[var(--color-surface-2)] border border-[var(--color-border)] hover:border-indigo-500/35 rounded-xl transition-all duration-200 cursor-pointer text-left shadow-sm group"
+                        >
+                          <ChevronRight
+                            size={10}
+                            className={`text-indigo-400/70 transition-transform duration-300 ${
+                              isExpanded ? 'rotate-90 text-indigo-400' : ''
+                            }`}
+                          />
+                          <Folder size={10} className="text-indigo-400/60 group-hover:text-indigo-400 transition-colors" />
+                          <span className="truncate flex-1">{cat.name}</span>
+                          <span className="bg-indigo-500/15 text-indigo-400 px-1.5 py-0.5 rounded-full text-[8px] font-black shrink-0 border border-indigo-500/10">
+                            {cat.components.length}
+                          </span>
+                        </button>
 
-                      {/* Componentes */}
-                      <div className="space-y-0.5 pl-2">
-                        {cat.components.map(comp => {
-                          const isSelected = selectedComponent?.link === comp.link;
-                          const nameKey = comp.name ? comp.name.toLowerCase().trim() : '';
-                          const hasSandbox = COMPONENT_SANDBOX_MAP[nameKey] !== undefined;
-                          return (
-                            <button
-                              key={comp.link}
-                              onClick={() => setSelectedComponent(comp)}
-                              className={`w-full text-left p-2.5 rounded-xl text-xs transition-all cursor-pointer flex flex-col gap-0.5 ${
-                                isSelected
-                                  ? 'bg-indigo-600/15 border border-indigo-500/50 text-[var(--color-text)] font-semibold'
-                                  : 'border border-transparent hover:bg-[var(--color-surface-2)]/60 text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-                              }`}
+                        {/* Componentes Colapsables con AnimatePresence */}
+                        <AnimatePresence initial={false}>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ 
+                                height: 'auto', 
+                                opacity: 1,
+                                transition: { height: { type: 'spring', damping: 25, stiffness: 220 }, opacity: { duration: 0.15 } }
+                              }}
+                              exit={{ 
+                                height: 0, 
+                                opacity: 0,
+                                transition: { height: { duration: 0.18 }, opacity: { duration: 0.1 } }
+                              }}
+                              className="overflow-hidden pl-3 space-y-0.5 border-l border-dashed border-indigo-500/15 ml-3.5"
                             >
-                              <div className="flex items-center justify-between gap-1.5 w-full">
-                                <span className="truncate flex items-center gap-1.5">
-                                  {hasSandbox && <Eye size={11} className="text-indigo-400 shrink-0" title="Simulable en Sandbox" />}
-                                  {searchTerm
-                                    ? <HighlightText text={comp.name} term={searchTerm} />
-                                    : comp.name
-                                  }
-                                </span>
-                                {comp.technicalName && (
-                                  <span className="text-[8px] font-mono opacity-50 bg-[var(--color-surface-2)] px-1 py-0.5 rounded shrink-0">
-                                    {comp.technicalName}
-                                  </span>
-                                )}
-                              </div>
-                              {comp.description && (
-                                <p className="text-[9px] text-[var(--color-text-muted)] line-clamp-1 opacity-80 pl-4">
-                                  {comp.description}
-                                </p>
-                              )}
-                            </button>
-                          );
-                        })}
+                              {cat.components.map(comp => {
+                                const isSelected = selectedComponent?.link === comp.link;
+                                const nameKey = comp.name ? comp.name.toLowerCase().trim() : '';
+                                const hasSandbox = COMPONENT_SANDBOX_MAP[nameKey] !== undefined;
+                                return (
+                                  <button
+                                    key={comp.link}
+                                    onClick={() => setSelectedComponent(comp)}
+                                    className={`w-full text-left p-2 rounded-xl text-xs transition-all cursor-pointer flex flex-col gap-0.5 ${
+                                      isSelected
+                                        ? 'bg-indigo-600/15 border border-indigo-500/40 text-[var(--color-text)] font-semibold'
+                                        : 'border border-transparent hover:bg-[var(--color-surface-2)]/60 text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-1.5 w-full">
+                                      <span className="truncate flex items-center gap-1.5">
+                                        {hasSandbox && <Eye size={11} className="text-indigo-400 shrink-0" title="Simulable en Sandbox" />}
+                                        {searchTerm
+                                          ? <HighlightText text={comp.name} term={searchTerm} />
+                                          : comp.name
+                                        }
+                                      </span>
+                                      {comp.technicalName && (
+                                        <span className="text-[8px] font-mono opacity-50 bg-[var(--color-surface-2)] px-1 py-0.5 rounded shrink-0">
+                                          {comp.technicalName}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {comp.description && (
+                                      <p className="text-[9px] text-[var(--color-text-muted)] line-clamp-1 opacity-80 pl-4">
+                                        {comp.description}
+                                      </p>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -607,7 +651,10 @@ export default function ComponentLibraryView({ showToast }) {
                     </div>
                   ) : (
                     <div className="p-5 h-full">
-                      <ComponentSandbox componentName={selectedComponent.name} />
+                      <ComponentSandbox 
+                        componentName={selectedComponent.name} 
+                        technicalName={selectedComponent.technicalName} 
+                      />
                     </div>
                   )}
                 </div>

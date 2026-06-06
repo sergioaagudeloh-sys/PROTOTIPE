@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAlertConfirm } from '../common/AlertConfirmContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Play, Sliders, Eye, AlertTriangle, Info, CheckCircle, X,
+  Play, Sliders, Eye, AlertTriangle, Info, CheckCircle, X, Check,
   Sun, Moon, Bell, ShoppingCart, Plus, Minus, Trash2, Star,
   ChevronDown, ChevronUp, Loader, Lock, User, Mail, Search,
   ToggleLeft, ToggleRight, Zap, Package, ArrowLeft,
@@ -2083,7 +2083,7 @@ function SandboxEmptyState({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onAction}
-          className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase rounded-xl shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
         >
           {actionLabel}
         </motion.button>
@@ -2316,6 +2316,14 @@ const SANDBOXES = {
       Material: ['Algodón', 'Poliéster', 'Lana'],
     };
 
+    const colorMap = {
+      'Negro': '#1e293b', // slate-800
+      'Blanco': '#ffffff',
+      'Azul': '#3b82f6',
+      'Rojo': '#ef4444',
+      'Verde': '#10b981',
+    };
+
     const handleSelect = (group, value) => {
       setSelected(prev => {
         if (multiSelect) {
@@ -2346,18 +2354,51 @@ const SANDBOXES = {
             <div key={group}>
               <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-muted)] mb-2">{group}</p>
               {layout === 'chips' ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {values.map(v => (
-                    <button
-                      key={v}
-                      onClick={() => handleSelect(group, v)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                        isSelected(group, v)
-                          ? 'bg-indigo-600 border-indigo-500 text-white'
-                          : 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-indigo-500/50 hover:text-[var(--color-text)]'
-                      }`}
-                    >{v}</button>
-                  ))}
+                <div className="flex flex-wrap gap-2 items-center">
+                  {values.map(v => {
+                    const isColor = group === 'Color';
+                    if (isColor) {
+                      const active = isSelected(group, v);
+                      const colorHex = colorMap[v];
+                      return (
+                        <button
+                          key={v}
+                          onClick={() => handleSelect(group, v)}
+                          className={`w-9 h-9 rounded-full border transition-all duration-300 cursor-pointer flex items-center justify-center relative ${
+                            active
+                              ? 'border-indigo-500 scale-105 shadow-md shadow-indigo-500/10 bg-indigo-500/5'
+                              : 'border-[var(--color-border)] hover:border-indigo-500/40 hover:scale-105 bg-transparent'
+                          }`}
+                          title={v}
+                        >
+                          <span
+                            style={{ backgroundColor: colorHex }}
+                            className={`w-6 h-6 rounded-full border border-black/5 block transition-transform duration-300 ${
+                              active ? 'scale-100' : 'scale-90 hover:scale-95'
+                            }`}
+                          />
+                          {active && (
+                            <motion.span
+                              layoutId="activeColorBorder"
+                              className="absolute inset-0 rounded-full border-2 border-indigo-500"
+                              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                            />
+                          )}
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        key={v}
+                        onClick={() => handleSelect(group, v)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                          isSelected(group, v)
+                            ? 'bg-indigo-600 border-indigo-500 text-white'
+                            : 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-indigo-500/50 hover:text-[var(--color-text)]'
+                        }`}
+                      >{v}</button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="relative w-full" style={{ zIndex: openGroup === group ? 50 : 'auto' }}>
@@ -2368,8 +2409,17 @@ const SANDBOXES = {
                     className="w-full h-11 pl-4 pr-10 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text)] focus:outline-none focus:border-indigo-500 transition-colors appearance-none cursor-pointer flex items-center justify-between relative hover:border-indigo-500/50"
                     style={{ borderColor: openGroup === group ? 'var(--color-primary, #6366f1)' : undefined }}
                   >
-                    <span className={selected[group] ? 'text-[var(--color-text)] font-semibold' : 'text-[var(--color-text-muted)]'}>
-                      {selected[group] || `Selecciona ${group}`}
+                    <span className="flex items-center gap-2">
+                      {group === 'Color' && selected[group] ? (
+                        <div className="flex items-center gap-2">
+                          <span className="w-4 h-4 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: colorMap[selected[group]] }} />
+                          <span className="font-semibold">{selected[group]}</span>
+                        </div>
+                      ) : (
+                        <span className={selected[group] ? 'text-[var(--color-text)] font-semibold' : 'text-[var(--color-text-muted)]'}>
+                          {selected[group] || `Selecciona ${group}`}
+                        </span>
+                      )}
                     </span>
                     <span className={`absolute right-3 text-[var(--color-text-muted)] transition-transform duration-200 ${openGroup === group ? 'rotate-180' : ''}`}>
                       <ChevronDown size={16} />
@@ -2414,7 +2464,14 @@ const SANDBOXES = {
                                 }
                               `}
                             >
-                              <span>{v}</span>
+                              {group === 'Color' ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="w-4 h-4 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: colorMap[v] }} />
+                                  <span className={selected[group] === v ? 'text-white' : 'text-[var(--color-text)]'}>{v}</span>
+                                </div>
+                              ) : (
+                                <span>{v}</span>
+                              )}
                               {selected[group] === v && <Check size={14} className="text-white" />}
                             </button>
                           ))}
@@ -2428,6 +2485,234 @@ const SANDBOXES = {
           ))}
           <div className="p-3 bg-[var(--color-bg)] rounded-xl border border-[var(--color-border)] font-mono text-[10px] text-indigo-400">
             {JSON.stringify(selected, null, 2)}
+          </div>
+        </div>
+      </SandboxLayout>
+    );
+  },
+
+  // ── Gestor de Categorías ────────────────────────────────────────────────
+  'gestor_categorias': () => {
+    // Diccionario de íconos SVG autocontenidos
+    const SVG_ICONS = {
+      Plus: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      ),
+      Trash2: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+      ),
+      Edit2: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+        </svg>
+      ),
+      Search: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      ),
+      Tag: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+          <line x1="7" y1="7" x2="7.01" y2="7" />
+        </svg>
+      ),
+      Shirt: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="M20.38 3.46L16 2a4 4 0 0 0-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a2 2 0 0 0 .99 1.42L7 12v7a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-7l3.15-1.42a2 2 0 0 0 .99-1.42l.58-3.47a2 2 0 0 0-1.34-2.23z" />
+        </svg>
+      ),
+      Footprints: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="M4 16v-2.38C4 11.5 5.88 9.85 6 7.07l.09-2.13A1.91 1.91 0 0 1 8.18 3.2a1.91 1.91 0 0 1 2 1.62l.6 5.1c.14 1.2-.3 2.45-1.2 3.32L8 15" />
+          <path d="M12 11.5V9.12c0-2.13 1.88-3.78 2-6.56l.09-2.13A1.91 1.91 0 0 1 16.18-1.3c1 .09 1.91 1.62 2 1.62l.6 5.1c.14 1.2-.3 2.45-1.2 3.32L16 10.5" />
+        </svg>
+      ),
+      Gem: (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+          <path d="M6 3h12l4 6-10 12L2 9z" />
+          <path d="M11 3 8 9l4 12 4-12-3-6" />
+          <path d="M2 9h20" />
+        </svg>
+      )
+    };
+
+    const CATEGORY_ICONS = [
+      { name: 'Shirt', label: 'Moda y Ropa', tags: ['ropa', 'camisa', 'moda', 'vestir'] },
+      { name: 'Footprints', label: 'Calzado', tags: ['zapatos', 'tenis', 'botas', 'calzado'] },
+      { name: 'Gem', label: 'Joyas y Accesorios', tags: ['joyas', 'accesorios', 'gema'] },
+      { name: 'Tag', label: 'General / Oferta', tags: ['etiqueta', 'descuento', 'general'] }
+    ];
+
+    const [categories, setCategories] = useState([
+      { id: '1', nombre: 'Calzado', iconName: 'Footprints' },
+      { id: '2', nombre: 'Camisetas', iconName: 'Shirt' },
+      { id: '3', nombre: 'Accesorios', iconName: 'Gem' }
+    ]);
+
+    const [nombre, setNombre] = useState('');
+    const [iconName, setIconName] = useState('Tag');
+    const [editingId, setEditingId] = useState(null);
+    const [searchTermIcon, setSearchTermIcon] = useState('');
+
+    const filteredIcons = useMemo(() => {
+      const term = searchTermIcon.toLowerCase().trim();
+      if (!term) return CATEGORY_ICONS;
+      return CATEGORY_ICONS.filter(icon => 
+        icon.name.toLowerCase().includes(term) ||
+        icon.label.toLowerCase().includes(term) ||
+        icon.tags.some(tag => tag.includes(term))
+      );
+    }, [searchTermIcon]);
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      if (!nombre.trim()) return;
+
+      if (editingId) {
+        setCategories(prev => prev.map(cat => cat.id === editingId ? { ...cat, nombre: nombre.trim(), iconName } : cat));
+        setEditingId(null);
+      } else {
+        setCategories(prev => [...prev, { id: String(Date.now()), nombre: nombre.trim(), iconName }]);
+      }
+      setNombre('');
+      setIconName('Tag');
+      setSearchTermIcon('');
+    };
+
+    const handleEdit = (cat) => {
+      setEditingId(cat.id);
+      setNombre(cat.nombre);
+      setIconName(cat.iconName || 'Tag');
+    };
+
+    const handleDelete = (id) => {
+      setCategories(prev => prev.filter(cat => cat.id !== id));
+      if (editingId === id) {
+        setEditingId(null);
+        setNombre('');
+        setIconName('Tag');
+      }
+    };
+
+    const handleCancel = () => {
+      setEditingId(null);
+      setNombre('');
+      setIconName('Tag');
+      setSearchTermIcon('');
+    };
+
+    const TagIcon = SVG_ICONS.Tag;
+    const SearchIcon = SVG_ICONS.Search;
+    const PlusIcon = SVG_ICONS.Plus;
+
+    return (
+      <SandboxLayout
+        title="Gestor de Categorías (CategoryManager)"
+        description="Administrador interactivo de categorías con selector integrado de iconos SVG nativos."
+        controls={[
+          { label: 'Total Cat.', type: 'number', value: String(categories.length), onChange: () => {} }
+        ]}
+      >
+        <div className="bg-[var(--color-surface)] rounded-2xl p-4 border border-[var(--color-border)] shadow-sm space-y-4 w-full">
+          <h2 className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5">
+            <TagIcon className="w-4 h-4 text-indigo-500" /> Categorías del Catálogo
+          </h2>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej: Camisetas, Jeans..."
+                className="flex-1 bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-3 h-9 text-xs text-[var(--color-text)] focus:outline-none focus:border-indigo-500 transition-colors placeholder-[var(--color-text-muted)]/50"
+              />
+              {editingId ? (
+                <div className="flex gap-1">
+                  <button type="submit" className="h-9 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all text-[10px] cursor-pointer">Guardar</button>
+                  <button type="button" onClick={handleCancel} className="h-9 px-3 bg-[var(--color-surface-2)] text-[var(--color-text)] rounded-xl font-bold transition-all text-[10px] cursor-pointer">X</button>
+                </div>
+              ) : (
+                <button type="submit" disabled={!nombre.trim()} className="h-9 px-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center justify-center gap-1 transition-all text-[10px] disabled:opacity-50 cursor-pointer">
+                  <PlusIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-[8px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">Icono de la Categoría</label>
+                <span className="text-[8px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
+                  {CATEGORY_ICONS.find(i => i.name === iconName)?.label || iconName}
+                </span>
+              </div>
+
+              <div className="relative">
+                <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  value={searchTermIcon}
+                  onChange={(e) => setSearchTermIcon(e.target.value)}
+                  placeholder="Buscar ícono..."
+                  className="w-full h-7 pl-7 pr-3 rounded-lg bg-[var(--color-surface-2)] border border-[var(--color-border)] text-xs text-[var(--color-text)] focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-4 gap-1 p-1.5 bg-[var(--color-surface-2)] rounded-xl border border-[var(--color-border)] max-h-24 overflow-y-auto no-scrollbar">
+                {filteredIcons.map(({ name, label }) => {
+                  const IconComp = SVG_ICONS[name] || SVG_ICONS.Tag;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setIconName(name)}
+                      className={`h-7 rounded-lg flex items-center justify-center border transition-all cursor-pointer ${
+                        iconName === name
+                          ? 'bg-indigo-600 border-indigo-500 text-white'
+                          : 'bg-[var(--color-surface)] text-[var(--color-text)] border-[var(--color-border)] hover:border-indigo-500/40'
+                      }`}
+                      title={label}
+                    >
+                      <IconComp className="w-3.5 h-3.5" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </form>
+
+          <div className="space-y-1.5 max-h-40 overflow-y-auto no-scrollbar">
+            {categories.map(cat => {
+              const IconComp = SVG_ICONS[cat.iconName] || SVG_ICONS.Tag;
+              return (
+                <div key={cat.id} className="flex items-center justify-between p-2 rounded-xl bg-[var(--color-surface-2)] border border-[var(--color-border)]">
+                  <div className="flex items-center gap-2 truncate">
+                    <div className="w-7 h-7 rounded-lg bg-[var(--color-surface)] flex items-center justify-center text-indigo-500 border border-[var(--color-border)]">
+                      <IconComp className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="font-semibold text-[var(--color-text)] text-xs truncate">{cat.nombre}</span>
+                  </div>
+                  <div className="flex gap-0.5">
+                    <button onClick={() => handleEdit(cat)} className="w-6 h-6 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-indigo-400 cursor-pointer">
+                      <SVG_ICONS.Edit2 className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => handleDelete(cat.id)} className="w-6 h-6 rounded flex items-center justify-center text-[var(--color-text-muted)] hover:text-red-400 cursor-pointer">
+                      <SVG_ICONS.Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </SandboxLayout>
@@ -3218,8 +3503,120 @@ const SANDBOXES = {
       costoPorFacturaDian: Number(dianFee)
     };
 
-    const handleExportPDF = ({ signatureDataUrl }) => {
-      alert("Simulando Exportación PDF\n\nFirma capturada con éxito en formato Base64. Largo de cadena: " + signatureDataUrl.length + " caracteres.");
+    const handleExportPDF = async ({ signatureDataUrl }) => {
+      try {
+        const { jsPDF } = await import('jspdf');
+        const doc = new jsPDF();
+
+        // Estilos y Colores Premium
+        const primaryColor = [99, 102, 241]; // Indigo
+        const darkColor = [15, 23, 42]; // Slate 900
+
+        // Encabezado
+        doc.setFillColor(...darkColor);
+        doc.rect(0, 0, 210, 40, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.text("PROTOTIPE", 15, 20);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("MOTOR DE APLICACIONES A LA MEDIDA", 15, 26);
+
+        // Detalles del Reporte
+        doc.setFontSize(10);
+        doc.text(`Nº RECIBO: REC-${Math.floor(100000 + Math.random() * 900000)}`, 140, 15);
+        doc.text(`FECHA: ${new Date().toLocaleDateString('es-CO')}`, 140, 21);
+        doc.text(`ENTORNO: PRODUCCIÓN`, 140, 27);
+
+        // Datos del Cliente
+        doc.setTextColor(...darkColor);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("INFORMACIÓN DEL COMERCIO", 15, 52);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Cliente ID: smartfix-ventas`, 15, 60);
+        doc.text(`Modelo Comercial: ${
+          billingMode === 'percentage' ? 'Porcentaje de Comisión' :
+          billingMode === 'fixed_per_service' ? 'Valor Fijo por Pedido' : 'Tarifa Plana Mensual'
+        }`, 15, 66);
+        doc.text(`Tarifa Pactada: ${
+          billingMode === 'percentage' ? `${commissionPercent}%` :
+          billingMode === 'fixed_per_service' ? `$${fixedFee} por pedido` : `$${flatFee} al mes`
+        }`, 15, 72);
+
+        // Desglose Económico
+        doc.setFont("helvetica", "bold");
+        doc.text("RESUMEN DE COMISIONES DEL PERÍODO", 15, 88);
+        
+        const summaryData = [
+          ["Ventas Consolidadas del Mes:", `$${totalMes.toLocaleString()}`],
+          ["Pedidos Completados:", `${pedidosMes} transacciones`],
+          ["Comisión de Plataforma:", `$${comisionMes.toLocaleString()}`]
+        ];
+
+        let startY = 96;
+        summaryData.forEach(([label, val]) => {
+          doc.setFont("helvetica", "normal");
+          doc.text(label, 15, startY);
+          doc.setFont("helvetica", "bold");
+          doc.text(val, 140, startY);
+          startY += 8;
+        });
+
+        // Tabla de Auditoría (Simulada para el recibo)
+        doc.setFont("helvetica", "bold");
+        doc.text("HISTORIAL DE PEDIDOS AUDITADOS (MOCK)", 15, 132);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setFillColor(241, 245, 249);
+        doc.rect(15, 138, 180, 8, 'F');
+        doc.setTextColor(71, 85, 105);
+        doc.text("ID PEDIDO", 20, 143);
+        doc.text("FECHA", 60, 143);
+        doc.text("MONTO VENTA", 110, 143);
+        doc.text("COMISIÓN", 160, 143);
+
+        const mockOrders = [
+          { id: "ORD-0891", date: "06-06 10:15", amount: 150000, comm: billingMode === 'percentage' ? 150000 * Number(commissionPercent) / 100 : Number(fixedFee) },
+          { id: "ORD-0892", date: "06-06 10:30", amount: 280000, comm: billingMode === 'percentage' ? 280000 * Number(commissionPercent) / 100 : Number(fixedFee) },
+          { id: "ORD-0893", date: "06-06 10:45", amount: 95000,  comm: billingMode === 'percentage' ? 95000 * Number(commissionPercent) / 100 : Number(fixedFee) }
+        ];
+
+        let orderY = 152;
+        mockOrders.forEach(o => {
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...darkColor);
+          doc.text(o.id, 20, orderY);
+          doc.text(o.date, 60, orderY);
+          doc.text(`$${o.amount.toLocaleString()}`, 110, orderY);
+          doc.text(`$${o.comm.toLocaleString()}`, 160, orderY);
+          orderY += 8;
+        });
+
+        // Firma de Conformidad
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("FIRMA DE CONFORMIDAD DEL CLIENTE", 15, 190);
+        
+        doc.rect(15, 195, 80, 35);
+        doc.addImage(signatureDataUrl, 'PNG', 20, 198, 70, 28);
+
+        // Leyenda
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text("Este recibo digital ha sido firmado y certificado electrónicamente.", 15, 245);
+        doc.text("Verificación con Telemetry Token único del cliente.", 15, 250);
+
+        doc.save(`Recibo_Comisiones_smartfix_${new Date().toISOString().slice(0, 7)}.pdf`);
+      } catch (err) {
+        console.error("Error al exportar PDF:", err);
+        alert("Fallo al exportar PDF: " + err.message);
+      }
     };
 
     return (
@@ -3940,11 +4337,11 @@ const SANDBOXES = {
 
     const angle = 360 / slices.length;
     const rad = (angle * Math.PI) / 180;
-    const x1 = 100 + 85 * Math.cos(-rad / 2);
-    const y1 = 100 + 85 * Math.sin(-rad / 2);
-    const x2 = 100 + 85 * Math.cos(rad / 2);
-    const y2 = 100 + 85 * Math.sin(rad / 2);
-    const pathD = `M 100 100 L ${x1.toFixed(2)} ${y1.toFixed(2)} A 85 85 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+    const x1 = 100 + 84 * Math.cos(-rad / 2);
+    const y1 = 100 + 84 * Math.sin(-rad / 2);
+    const x2 = 100 + 84 * Math.cos(rad / 2);
+    const y2 = 100 + 84 * Math.sin(rad / 2);
+    const pathD = `M 100 100 L ${x1.toFixed(2)} ${y1.toFixed(2)} A 84 84 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
 
     return (
       <SandboxLayout
@@ -3954,66 +4351,142 @@ const SANDBOXES = {
           { label: 'Premios (CSV)', type: 'text', value: prizesText, onChange: setPrizesText },
         ]}
       >
-        <div className="flex flex-col items-center gap-4 py-3 select-none">
-          <div className="relative w-56 h-56 flex items-center justify-center">
-            <div className="absolute top-[-8px] z-20 flex flex-col items-center">
-              <div className="w-4 h-6 bg-red-500 border border-white rounded-b-full shadow-lg transform origin-top animate-pulse" />
-              <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-red-500" />
+        <div className="flex flex-col items-center gap-6 py-4 select-none">
+          <style>{`
+            @keyframes bulbGlow {
+              0%, 100% { fill: #fef08a; filter: drop-shadow(0 0 2px #d97706); opacity: 0.6; }
+              50% { fill: #fbbf24; filter: drop-shadow(0 0 8px #f59e0b); opacity: 1; }
+            }
+            .bulb-glow {
+              animation: bulbGlow 0.9s infinite alternate;
+            }
+          `}</style>
+
+          <div className="relative w-64 h-64 flex items-center justify-center">
+            {/* Pointer Pin / Indicador Premium */}
+            <div className="absolute -top-3.5 z-30 flex flex-col items-center filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]">
+              <svg width="28" height="36" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="goldPointer" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fef08a" />
+                    <stop offset="50%" stopColor="#ca8a04" />
+                    <stop offset="100%" stopColor="#854d0e" />
+                  </linearGradient>
+                </defs>
+                <path d="M12 32L22 12C24 8 22 0 12 0C2 0 0 8 2 12L12 32Z" fill="url(#goldPointer)" />
+                <path d="M12 28L19 13C20.2 10.5 19 3 12 3C5 3 3.8 10.5 5 13L12 28Z" fill="#f43f5e" />
+                <circle cx="12" cy="10" r="3.5" fill="#ffffff" opacity="0.9" />
+              </svg>
             </div>
 
-            <div className="absolute inset-0 bg-slate-950/60 border-4 border-slate-900 rounded-full shadow-2xl flex items-center justify-center p-1.5 z-0" />
+            {/* Sombra / Glow de Fondo */}
+            <div className="absolute inset-2 bg-gradient-to-tr from-amber-500/10 to-indigo-500/15 rounded-full blur-2xl z-0" />
 
+            {/* Contenedor Giratorio con el SVG */}
             <div
               style={{
                 transform: `rotate(${rotation}deg)`,
                 transition: isSpinning ? 'transform 5000ms cubic-bezier(0.1, 0.8, 0.1, 1)' : 'none'
               }}
-              className="w-full h-full rounded-full overflow-hidden border border-white/10 z-10"
+              className="w-full h-full rounded-full overflow-hidden z-10 filter drop-shadow-[0_10px_25px_rgba(0,0,0,0.5)]"
             >
               <svg viewBox="0 0 200 200" className="w-full h-full">
+                <defs>
+                  <linearGradient id="goldMetallic" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#fef08a" />
+                    <stop offset="30%" stopColor="#eab308" />
+                    <stop offset="50%" stopColor="#ca8a04" />
+                    <stop offset="70%" stopColor="#eab308" />
+                    <stop offset="100%" stopColor="#854d0e" />
+                  </linearGradient>
+                  <radialGradient id="wheelCenter" cx="50%" cy="50%" r="50%">
+                    <stop offset="60%" stopColor="#1e1b4b" />
+                    <stop offset="100%" stopColor="#030712" />
+                  </radialGradient>
+                  <filter id="shadowFilter" x="-10%" y="-10%" width="120%" height="120%">
+                    <feDropShadow dx="0" dy="1.2" stdDeviation="1" floodOpacity="0.8" />
+                  </filter>
+                </defs>
+
+                {/* Slices / Segmentos */}
                 {slices.map((slice, i) => (
                   <g key={i} transform={`rotate(${i * angle}, 100, 100)`}>
-                    <path d={pathD} fill={slice.color} stroke="#1e293b" strokeWidth="0.5" />
+                    <path d={pathD} fill={slice.color} stroke="rgba(255, 255, 255, 0.2)" strokeWidth="0.5" />
                     <text
-                      x="142"
-                      y="103"
-                      textAnchor="middle"
-                      fill="#fff"
-                      fontSize="6"
-                      fontWeight="bold"
-                      className="uppercase tracking-wider fill-white font-mono"
-                      transform={`rotate(${0}, 142, 100)`}
+                      x="176"
+                      y="100"
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fill="#ffffff"
+                      fontSize="5"
+                      fontWeight="900"
+                      filter="url(#shadowFilter)"
+                      className="uppercase tracking-wider fill-white font-sans select-none"
                     >
-                      {slice.label.substring(0, 12)}
+                      {slice.label}
                     </text>
                   </g>
                 ))}
-                <circle cx="100" cy="100" r="18" fill="var(--color-bg, #0f172a)" stroke="white" strokeWidth="1" />
-                <circle cx="100" cy="100" r="14" fill="#1e293b" />
+
+                {/* Outer Ring / Aro dorado exterior */}
+                <circle cx="100" cy="100" r="95" fill="none" stroke="url(#goldMetallic)" strokeWidth="5" />
+                <circle cx="100" cy="100" r="91.5" fill="none" stroke="url(#goldMetallic)" strokeWidth="1" opacity="0.4" />
+
+                {/* Bulbs / Bombillos LED dorados animados */}
+                {Array.from({ length: 24 }).map((_, idx) => {
+                  const bulbAngle = (360 / 24) * idx;
+                  const radBulb = (bulbAngle * Math.PI) / 180;
+                  const cx = 100 + 91.5 * Math.cos(radBulb);
+                  const cy = 100 + 91.5 * Math.sin(radBulb);
+                  const delay = (idx % 4) * 220;
+                  return (
+                    <circle
+                      key={idx}
+                      cx={cx}
+                      cy={cy}
+                      r="1.8"
+                      className="bulb-glow"
+                      style={{
+                        animationDelay: `${delay}ms`
+                      }}
+                    />
+                  );
+                })}
+
+                {/* Bezel de separación interior */}
+                <circle cx="100" cy="100" r="84" fill="none" stroke="url(#goldMetallic)" strokeWidth="1.2" />
+
+                {/* Centro Decorativo */}
+                <circle cx="100" cy="100" r="28" fill="url(#wheelCenter)" stroke="url(#goldMetallic)" strokeWidth="2.5" className="drop-shadow-md" />
               </svg>
             </div>
 
+            {/* Central Button / Botón de acción */}
             <button
               onClick={spin}
               disabled={isSpinning}
-              className={`absolute z-30 w-16 h-16 rounded-full flex flex-col items-center justify-center text-[10px] font-black uppercase shadow-xl border border-white/20 transition-all duration-300 cursor-pointer ${
+              className={`absolute z-30 w-14 h-14 rounded-full flex flex-col items-center justify-center text-[10px] font-black uppercase shadow-[0_6px_20px_rgba(217,119,6,0.3)] transition-all duration-300 cursor-pointer ${
                 isSpinning
-                  ? 'bg-slate-800 text-slate-500 border-slate-700'
-                  : 'bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-white hover:scale-105 active:scale-95 shadow-purple-500/20'
+                  ? 'bg-slate-900 text-slate-500 border-slate-800'
+                  : 'bg-gradient-to-tr from-amber-500 via-rose-500 to-violet-600 text-white hover:scale-105 active:scale-95 hover:shadow-[0_6px_24px_rgba(217,119,6,0.5)] border border-white/20'
               }`}
+              style={{
+                fontFamily: "'Outfit', 'Inter', sans-serif",
+                letterSpacing: '0.05em'
+              }}
             >
-              <span>{isSpinning ? 'Giro...' : 'GIRAR'}</span>
+              <span className="relative z-10">{isSpinning ? 'GIRO...' : 'GIRAR'}</span>
             </button>
           </div>
 
           {prizeResult && (
-            <div className="w-full bg-slate-950/60 border border-white/10 rounded-2xl p-3 text-center space-y-2 animate-fade-in">
+            <div className="w-full bg-slate-950/60 border border-white/10 rounded-2xl p-3 text-center space-y-2 animate-fade-in shadow-xl max-w-xs">
               <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">¡Felicidades, ganaste!</span>
-              <p className="text-sm font-black text-indigo-400 uppercase">{prizeResult}</p>
+              <p className="text-sm font-black text-amber-400 uppercase">{prizeResult}</p>
               {couponCode && (
                 <div className="flex flex-col items-center gap-1.5 pt-1 border-t border-white/5">
                   <span className="text-[8px] text-slate-500 font-mono">CÓDIGO DE CUPÓN:</span>
-                  <div className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-xs font-mono font-bold text-indigo-400 select-all cursor-pointer">
+                  <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs font-mono font-bold text-amber-400 select-all cursor-pointer">
                     {couponCode}
                   </div>
                 </div>
@@ -4038,6 +4511,8 @@ const SANDBOXES = {
     const [occupiedSlots, setOccupiedSlots] = useState({});
     const [clientName, setClientName] = useState('');
     const [clientService, setClientService] = useState('Corte de Cabello 💈');
+    const [isSelectOpen, setIsSelectOpen] = useState(false);
+
 
     const daysList = useMemo(() => {
       const list = [];
@@ -4136,9 +4611,9 @@ const SANDBOXES = {
           { label: 'Ocupación (%)', type: 'text', value: occupiedRate, onChange: setOccupiedRate },
         ]}
       >
-        <div className="w-full space-y-4 text-white">
+        <div className="w-full space-y-4 text-[var(--color-text)]">
           <div>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Selecciona un día:</span>
+            <span className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider block mb-2">Selecciona un día:</span>
             <div className="flex gap-2 overflow-x-auto pb-1.5 no-scrollbar scroll-smooth">
               {daysList.map((day) => {
                 const isActive = selectedDate === day.dateString;
@@ -4152,12 +4627,12 @@ const SANDBOXES = {
                     className={`flex flex-col items-center justify-center min-w-[54px] p-2.5 rounded-xl border transition-all duration-300 cursor-pointer ${
                       isActive
                         ? 'bg-gradient-to-br from-indigo-500 to-purple-600 border-indigo-400 text-white shadow-lg shadow-indigo-500/10'
-                        : 'bg-slate-950/40 border-white/5 text-slate-400 hover:border-white/10 hover:text-white'
+                        : 'bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-indigo-500/30 hover:text-[var(--color-text)]'
                     }`}
                   >
-                    <span className="text-[9px] uppercase font-bold tracking-wider opacity-60">{day.dayName}</span>
-                    <span className="text-sm font-black mt-1">{day.dayNumber}</span>
-                    <span className="text-[8px] mt-0.5 opacity-60 font-mono">{day.monthName}</span>
+                    <span className={`text-[9px] uppercase font-bold tracking-wider ${isActive ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`}>{day.dayName}</span>
+                    <span className={`text-sm font-black mt-1 ${isActive ? 'text-white' : 'text-[var(--color-text)]'}`}>{day.dayNumber}</span>
+                    <span className={`text-[8px] mt-0.5 font-mono ${isActive ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`}>{day.monthName}</span>
                   </button>
                 );
               })}
@@ -4165,7 +4640,7 @@ const SANDBOXES = {
           </div>
 
           <div>
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Horas disponibles:</span>
+            <span className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider block mb-2">Horas disponibles:</span>
             <div className="grid grid-cols-3 gap-1.5">
               {timeSlots.map((slot) => {
                 const isOccupied = currentOccupied.includes(slot);
@@ -4173,11 +4648,11 @@ const SANDBOXES = {
                 
                 let btnClass = "";
                 if (isOccupied) {
-                  btnClass = "bg-slate-800/40 border-slate-800 text-slate-600 opacity-40 cursor-not-allowed";
+                  btnClass = "bg-[var(--color-surface-2)] border-[var(--color-border)]/40 text-[var(--color-text-muted)] opacity-35 cursor-not-allowed line-through";
                 } else if (isSelected) {
-                  btnClass = "bg-purple-500/20 border-purple-500/60 text-purple-400 font-black scale-105 shadow-md shadow-purple-500/5";
+                  btnClass = "bg-purple-600/15 border-purple-500 text-purple-600 dark:text-purple-300 font-black scale-105 shadow-md shadow-purple-500/5";
                 } else {
-                  btnClass = "bg-slate-950/50 border-white/5 text-slate-300 hover:border-white/20 hover:scale-[1.02] cursor-pointer";
+                  btnClass = "bg-[var(--color-surface-2)] border-[var(--color-border)] text-[var(--color-text)] hover:border-indigo-500/30 hover:scale-[1.02] cursor-pointer";
                 }
 
                 return (
@@ -4195,10 +4670,10 @@ const SANDBOXES = {
           </div>
 
           {selectedSlot && (
-            <div className="p-3 bg-slate-950/60 border border-white/10 rounded-2xl space-y-3 animate-fade-in">
+            <div className="p-3 bg-[var(--color-surface-2)]/60 border border-[var(--color-border)] rounded-2xl space-y-3 animate-fade-in">
               <div>
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Resumen de Cita:</span>
-                <p className="text-xs font-bold text-indigo-400 mt-1 uppercase">
+                <span className="text-[8px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Resumen de Cita:</span>
+                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1 uppercase">
                   📅 {selectedDate} a las ⏰ {selectedSlot}
                 </p>
               </div>
@@ -4209,24 +4684,61 @@ const SANDBOXES = {
                   placeholder="Tu Nombre"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition placeholder-slate-600"
+                  className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] focus:outline-none focus:border-indigo-500 transition placeholder-[var(--color-text-muted)]/50"
                 />
 
-                <select
-                  value={clientService}
-                  onChange={(e) => setClientService(e.target.value)}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition cursor-pointer"
-                >
-                  <option value="Corte de Cabello 💈">Corte de Cabello 💈</option>
-                  <option value="Mantenimiento de Barba 🪒">Mantenimiento de Barba 🪒</option>
-                  <option value="Servicio Técnico Premium 🛠️">Servicio Técnico Premium 🛠️</option>
-                  <option value="Lavado & Peinado 🧼">Lavado & Peinado 🧼</option>
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsSelectOpen(!isSelectOpen)}
+                    className="w-full bg-[var(--color-surface-2)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] flex items-center justify-between transition cursor-pointer hover:border-indigo-500/50"
+                  >
+                    <span>{clientService}</span>
+                    <ChevronDown size={14} className={`text-[var(--color-text-muted)] transition-transform duration-300 ${isSelectOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  <AnimatePresence>
+                    {isSelectOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsSelectOpen(false)} />
+                        <motion.div
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute left-0 right-0 mt-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-xl overflow-hidden z-50 divide-y divide-[var(--color-border)]/50"
+                        >
+                          {[
+                            "Corte de Cabello 💈",
+                            "Mantenimiento de Barba 🪒",
+                            "Servicio Técnico Premium 🛠️",
+                            "Lavado & Peinado 🧼"
+                          ].map((service) => (
+                            <button
+                              key={service}
+                              type="button"
+                              onClick={() => {
+                                setClientService(service);
+                                setIsSelectOpen(false);
+                              }}
+                              className={`w-full px-3 py-2.5 text-xs text-left transition-colors flex items-center justify-between hover:bg-[var(--color-surface-2)] cursor-pointer ${
+                                clientService === service ? 'text-indigo-400 font-bold bg-indigo-500/5' : 'text-[var(--color-text)]'
+                              }`}
+                            >
+                              <span>{service}</span>
+                              {clientService === service && <span className="text-indigo-400 font-bold">✓</span>}
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <button
                 onClick={handleConfirmBooking}
-                className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold uppercase rounded-xl tracking-wider transition-all duration-300 shadow-lg shadow-indigo-500/15 cursor-pointer text-center"
+                className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold uppercase rounded-xl tracking-wider transition-all duration-300 shadow-lg shadow-indigo-500/15 cursor-pointer text-center text-white"
               >
                 Confirmar Reserva
               </button>
@@ -4234,6 +4746,414 @@ const SANDBOXES = {
           )}
         </div>
       </SandboxLayout>
+    );
+  },
+
+  // ── Sistema de Notificaciones Premium ──────────────────────────────────────
+  'sistema_notificaciones': () => {
+    // ── Estado del configurador ──────────────────────────────────────────────
+    const [toastType, setToastType] = useState('success');
+    const [toastTitle, setToastTitle] = useState('Pedido confirmado');
+    const [toastMessage, setToastMessage] = useState('Tu pedido #1234 fue procesado exitosamente.');
+    const [duration, setDuration] = useState('4500');
+    const [showProgress, setShowProgress] = useState(true);
+    const [pauseOnHover, setPauseOnHover] = useState(true);
+    const [hasAction, setHasAction] = useState(false);
+    const [actionLabel, setActionLabel] = useState('Ver pedido');
+    const [addToHistory, setAddToHistory] = useState(true);
+
+    // ── Toasts en vivo (estado local del playground) ────────────────────────
+    const [liveToasts, setLiveToasts] = useState([]);
+    const [history, setHistory] = useState([]);
+    const [badgeCount, setBadgeCount] = useState(0);
+    const [trayOpen, setTrayOpen] = useState(false);
+
+    const removeToast = (id) => setLiveToasts(prev => prev.filter(t => t.id !== id));
+
+    const fireToast = () => {
+      const id = `toast-${Date.now()}`;
+      const toast = {
+        id, type: toastType, title: toastTitle,
+        message: toastMessage,
+        duration: Number(duration),
+        showProgress, pauseOnHover,
+        action: hasAction ? { label: actionLabel, onClick: () => {} } : null,
+        createdAt: Date.now(),
+      };
+      setLiveToasts(prev => [...prev.slice(-4), toast]);
+      if (addToHistory) {
+        setHistory(prev => [{ ...toast, read: false }, ...prev].slice(0, 20));
+        setBadgeCount(c => c + 1);
+      }
+      if (Number(duration) > 0) {
+        setTimeout(() => removeToast(id), Number(duration));
+      }
+    };
+
+    const TYPES = ['success', 'error', 'warning', 'info', 'event', 'mention'];
+    const TYPE_CONFIG = {
+      success: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', bar: 'bg-emerald-500', border: 'border-emerald-500/40', label: 'Éxito ✓' },
+      error:   { color: 'text-red-400',     bg: 'bg-red-500/10',     bar: 'bg-red-500',     border: 'border-red-500/40',     label: 'Error ✕' },
+      warning: { color: 'text-amber-400',   bg: 'bg-amber-500/10',   bar: 'bg-amber-500',   border: 'border-amber-500/40',   label: 'Alerta ⚠' },
+      info:    { color: 'text-blue-400',    bg: 'bg-blue-500/10',    bar: 'bg-blue-500',    border: 'border-blue-500/40',    label: 'Info ℹ' },
+      event:   { color: 'text-purple-400',  bg: 'bg-purple-500/10',  bar: 'bg-purple-500',  border: 'border-purple-500/40',  label: 'Evento 🛒' },
+      mention: { color: 'text-cyan-400',    bg: 'bg-cyan-500/10',    bar: 'bg-cyan-500',    border: 'border-cyan-500/40',    label: 'Mención @' },
+    };
+
+    const cfg = TYPE_CONFIG[toastType] || TYPE_CONFIG.info;
+
+    // Código generado dinámicamente
+    const generatedCode = `notify.${toastType}(
+  "${toastTitle}",
+  "${toastMessage}",
+  {
+    duration: ${duration},
+    showProgress: ${showProgress},
+    pauseOnHover: ${pauseOnHover},${hasAction ? `\n    action: { label: "${actionLabel}", onClick: () => navigate('/orders') },` : ''}
+  }
+);`;
+
+    return (
+      <div className="space-y-5">
+        {/* Header */}
+        <div>
+          <h4 className="text-xs font-black text-[var(--color-text)]">Sistema de Notificaciones Premium</h4>
+          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 leading-relaxed">
+            Configura cada parámetro en vivo. El código generado debajo es el que debes usar con el cliente.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-[1fr_320px] gap-4">
+
+          {/* ── Columna izquierda: Configurador ─────────────────────────────── */}
+          <div className="space-y-4">
+
+            {/* Tipo de Toast */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">1. Tipo de notificación</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {TYPES.map(t => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setToastType(t);
+                      // Sugerir textos contextuales por tipo
+                      const presets = {
+                        success: { title: 'Operación exitosa', message: 'Los cambios fueron guardados correctamente.' },
+                        error:   { title: 'Error al procesar', message: 'No se pudo completar la acción. Intenta de nuevo.' },
+                        warning: { title: 'Atención requerida', message: 'Esta acción no se puede deshacer. ¿Continuar?' },
+                        info:    { title: 'Actualización disponible', message: 'Una nueva versión del sistema está lista.' },
+                        event:   { title: 'Nuevo pedido #4821', message: 'Mesa 3 acaba de realizar un pedido.' },
+                        mention: { title: 'Te mencionaron', message: 'Carlos: "@usuario revisa el inventario"' },
+                      };
+                      setToastTitle(presets[t].title);
+                      setToastMessage(presets[t].message);
+                    }}
+                    className={`px-2 py-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                      toastType === t
+                        ? `${TYPE_CONFIG[t].bg} ${TYPE_CONFIG[t].border} ${TYPE_CONFIG[t].color}`
+                        : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-border-strong)]'
+                    }`}
+                  >
+                    {TYPE_CONFIG[t].label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Contenido */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">2. Contenido</p>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Título</label>
+                  <input
+                    value={toastTitle}
+                    onChange={e => setToastTitle(e.target.value)}
+                    className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-[11px] rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
+                    placeholder="Título del toast..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider block mb-1">Mensaje</label>
+                  <textarea
+                    value={toastMessage}
+                    onChange={e => setToastMessage(e.target.value)}
+                    rows={2}
+                    className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-[11px] rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 resize-none"
+                    placeholder="Descripción del evento..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Comportamiento */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">3. Comportamiento</p>
+              <div className="space-y-2.5">
+
+                {/* Duración */}
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold text-[var(--color-text)]">Auto-descarte</p>
+                    <p className="text-[9px] text-[var(--color-text-muted)]">0 = permanente hasta X</p>
+                  </div>
+                  <div className="flex gap-1">
+                    {[['0', 'Perm.'], ['3000', '3s'], ['4500', '4.5s'], ['7000', '7s']].map(([val, lbl]) => (
+                      <button
+                        key={val}
+                        onClick={() => setDuration(val)}
+                        className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-all cursor-pointer ${
+                          duration === val
+                            ? 'bg-indigo-600 border-indigo-500 text-white'
+                            : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-indigo-400/40'
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toggle: Barra de progreso */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-[var(--color-text)]">Barra de progreso</p>
+                  <button
+                    onClick={() => setShowProgress(v => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out cursor-pointer outline-none focus:outline-none ${
+                      showProgress ? 'bg-indigo-600 border-indigo-500' : 'bg-[var(--color-surface-2)] border-[var(--color-border)]'
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ml-0.5 ${showProgress ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                {/* Toggle: Pausar en hover */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-[var(--color-text)]">Pausar al hacer hover</p>
+                  <button
+                    onClick={() => setPauseOnHover(v => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out cursor-pointer outline-none focus:outline-none ${
+                      pauseOnHover ? 'bg-indigo-600 border-indigo-500' : 'bg-[var(--color-surface-2)] border-[var(--color-border)]'
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ml-0.5 ${pauseOnHover ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                {/* Toggle: Guardar en historial */}
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-[var(--color-text)]">Guardar en historial (bandeja)</p>
+                  <button
+                    onClick={() => setAddToHistory(v => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out cursor-pointer outline-none focus:outline-none ${
+                      addToHistory ? 'bg-indigo-600 border-indigo-500' : 'bg-[var(--color-surface-2)] border-[var(--color-border)]'
+                    }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ml-0.5 ${addToHistory ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                {/* Toggle: Botón de acción */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-[var(--color-text)]">Botón de acción clickeable</p>
+                    <button
+                      onClick={() => setHasAction(v => !v)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out cursor-pointer outline-none focus:outline-none ${
+                        hasAction ? 'bg-indigo-600 border-indigo-500' : 'bg-[var(--color-surface-2)] border-[var(--color-border)]'
+                      }`}
+                    >
+                      <span className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transform transition-transform duration-200 ease-in-out ml-0.5 ${hasAction ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {hasAction && (
+                      <motion.input
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        value={actionLabel}
+                        onChange={e => setActionLabel(e.target.value)}
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] text-[11px] rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
+                        placeholder="Texto del botón (ej: Ver pedido)"
+                      />
+                    )}
+                  </AnimatePresence>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Código generado */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-2">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">4. Código generado</p>
+              <pre className="text-[10px] font-mono text-emerald-400 bg-[var(--color-bg)]/60 rounded-xl p-3 overflow-x-auto leading-relaxed whitespace-pre-wrap">{generatedCode}</pre>
+            </div>
+          </div>
+
+          {/* ── Columna derecha: Preview + Campana + Historial ───────────────── */}
+          <div className="flex flex-col gap-4">
+
+            {/* Preview del toast */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">Preview en vivo</p>
+
+              {/* Vista previa estática del toast */}
+              <div className={`rounded-2xl border-l-[3px] ${cfg.border} bg-[var(--color-surface)] shadow-xl overflow-hidden`} style={{ borderColor: '' }}>
+                {showProgress && Number(duration) > 0 && (
+                  <div className="h-0.5 bg-[var(--color-border)]">
+                    <div className={`h-full ${cfg.bar} w-[60%] transition-all`} />
+                  </div>
+                )}
+                <div className="flex items-start gap-3 p-3.5 pt-4">
+                  <div className={`p-1.5 rounded-xl shrink-0 ${cfg.bg}`}>
+                    <div className={`w-3.5 h-3.5 rounded-full ${cfg.bar} opacity-80`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-[var(--color-text)] leading-tight">{toastTitle || 'Título del toast'}</p>
+                    {toastMessage && <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5 leading-relaxed">{toastMessage}</p>}
+                    {hasAction && actionLabel && (
+                      <button className={`mt-1.5 flex items-center gap-1 text-[10px] font-bold ${cfg.color} cursor-pointer`}>
+                        {actionLabel} <ChevronRight size={9} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="shrink-0 p-1 rounded-lg bg-[var(--color-surface-2)] text-[var(--color-text-muted)]">
+                    <X size={12} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón de disparo */}
+              <button
+                onClick={fireToast}
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-[11px] font-black uppercase rounded-xl text-white shadow-lg shadow-indigo-500/20 transition-all cursor-pointer tracking-wider"
+              >
+                🚀 Disparar Toast
+              </button>
+            </div>
+
+            {/* Campana con badge */}
+            <div className="bg-[var(--color-surface-2)]/50 border border-[var(--color-border)] rounded-2xl p-4 space-y-3">
+              <p className="text-[10px] font-black text-[var(--color-text)] uppercase tracking-wider">Campana + Bandeja</p>
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <button
+                    onClick={() => { setTrayOpen(v => !v); setBadgeCount(0); }}
+                    className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+                      trayOpen
+                        ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-400'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                    }`}
+                  >
+                    <Bell size={16} strokeWidth={1.8} />
+                  </button>
+                  <AnimatePresence>
+                    {badgeCount > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                        className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-red-500 text-white text-[9px] font-black rounded-full shadow-lg"
+                      >
+                        {badgeCount > 99 ? '99+' : badgeCount}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <p className="text-[10px] text-[var(--color-text-muted)]">
+                  {badgeCount > 0 ? `${badgeCount} sin leer — clic para ver` : 'Sin notificaciones nuevas'}
+                </p>
+              </div>
+
+              {/* Mini-bandeja inline */}
+              <AnimatePresence>
+                {trayOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border border-[var(--color-border)] rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
+                      {history.length === 0 ? (
+                        <div className="py-6 text-center text-[10px] text-[var(--color-text-muted)] opacity-50">Sin historial aún</div>
+                      ) : (
+                        history.map(n => {
+                          const c = TYPE_CONFIG[n.type] || TYPE_CONFIG.info;
+                          return (
+                            <div key={n.id} className="flex items-start gap-2.5 px-3 py-2.5 border-b border-[var(--color-border)]/40 hover:bg-[var(--color-surface-2)]/40 transition-colors">
+                              <div className={`p-1 rounded-lg shrink-0 ${c.bg} mt-0.5`}>
+                                <div className={`w-2.5 h-2.5 rounded-full ${c.bar} opacity-80`} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-[var(--color-text)] truncate">{n.title}</p>
+                                {n.message && <p className="text-[9px] text-[var(--color-text-muted)] truncate">{n.message}</p>}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                    {history.length > 0 && (
+                      <button
+                        onClick={() => setHistory([])}
+                        className="mt-1.5 w-full text-[9px] text-[var(--color-text-muted)] hover:text-red-400 transition-colors cursor-pointer text-center"
+                      >
+                        Limpiar historial
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Toasts en vivo flotantes (en el propio panel) */}
+            <div className="relative">
+              <AnimatePresence>
+                {liveToasts.map((toast, i) => {
+                  const c = TYPE_CONFIG[toast.type] || TYPE_CONFIG.info;
+                  return (
+                    <motion.div
+                      key={toast.id}
+                      initial={{ opacity: 0, x: 40, scale: 0.9 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: 40, scale: 0.9 }}
+                      className={`mb-2 rounded-2xl border-l-[3px] ${c.border} bg-[var(--color-surface)] shadow-lg overflow-hidden`}
+                    >
+                      {toast.showProgress && toast.duration > 0 && (
+                        <div className="h-0.5 bg-[var(--color-border)]">
+                          <motion.div
+                            className={`h-full ${c.bar}`}
+                            initial={{ width: '100%' }}
+                            animate={{ width: '0%' }}
+                            transition={{ duration: toast.duration / 1000, ease: 'linear' }}
+                          />
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2.5 p-3">
+                        <div className={`p-1 rounded-lg shrink-0 ${c.bg} mt-0.5`}>
+                          <div className={`w-2.5 h-2.5 rounded-full ${c.bar} opacity-80`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-black text-[var(--color-text)]">{toast.title}</p>
+                          {toast.message && <p className="text-[9px] text-[var(--color-text-muted)] mt-0.5">{toast.message}</p>}
+                          {toast.action && (
+                            <span className={`text-[9px] font-bold ${c.color} mt-1 block`}>{toast.action.label} →</span>
+                          )}
+                        </div>
+                        <button onClick={() => removeToast(toast.id)} className="shrink-0 p-0.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text)] cursor-pointer">
+                          <X size={10} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+
+          </div>
+        </div>
+      </div>
     );
   },
 
@@ -4377,9 +5297,9 @@ export const COMPONENT_SANDBOX_MAP = {
   'modal confirmacion': 'modal_confirmacion',
   'modal base': 'modal_confirmacion',
   // ── Selector de Variantes / Categorías ──
-  'selector de categorías (categorymanager)': 'selector_atributos',
-  'selector de categorías': 'selector_atributos',
-  'selector_categorias': 'selector_atributos',
+  'selector de categorías (categorymanager)': 'gestor_categorias',
+  'selector de categorías': 'gestor_categorias',
+  'selector_categorias': 'gestor_categorias',
   'selector de variantes de producto (variantselector)': 'selector_atributos',
   'selector de variantes de producto': 'selector_atributos',
   'selector de variantes': 'selector_atributos',
@@ -4576,38 +5496,50 @@ export const COMPONENT_SANDBOX_MAP = {
   'reservas_agenda': 'reservas_agenda',
   'agenda': 'reservas_agenda',
   'reservas': 'reservas_agenda',
+  // ── Sistema de Notificaciones Premium ──
+  'sistema de notificaciones premium': 'sistema_notificaciones',
+  'sistema de notificaciones': 'sistema_notificaciones',
+  'sistema_notificaciones': 'sistema_notificaciones',
+  'notificaciones': 'sistema_notificaciones',
+  'notification system': 'sistema_notificaciones',
+  'toaststack': 'sistema_notificaciones',
+  'notificationbell': 'sistema_notificaciones',
+  'notificationtray': 'sistema_notificaciones',
+  'campana de notificaciones': 'sistema_notificaciones',
+  'bandeja de notificaciones': 'sistema_notificaciones',
 };
 
-export default function ComponentSandbox({ componentName = '' }) {
+export function getSandboxKey(name = '', technicalName = '') {
+  const normName = name.toLowerCase().trim();
+  const normTech = (technicalName || '').toLowerCase().trim();
+  
+  let key = COMPONENT_SANDBOX_MAP[normName] || COMPONENT_SANDBOX_MAP[normTech] || null;
+  if (key) return key;
+  
+  const check = (str) => {
+    if (!str) return null;
+    if (str.includes('marquee') || str.includes('marquesina')) return 'infinite_logo_marquee';
+    if (str.includes('radial') || str.includes('menú radial') || str.includes('menu radial')) return 'radial_interactive_menu';
+    if (str.includes('tilt') || str.includes('holograf') || str.includes('holográf')) return 'holographic_tilt_card';
+    if (str.includes('magnét') || str.includes('magnet') || str.includes('magnetic')) return 'magnetic_button';
+    if (str.includes('swipe') || str.includes('desliza') || str.includes('mazo')) return 'swipeable_card_stack';
+    if (str.includes('glow') || str.includes('fondo luces') || str.includes('luces orgán') || str.includes('ambient')) return 'interactive_ambient_glow';
+    if (str.includes('empty') || str.includes('vacio') || str.includes('vacío')) return 'empty_state';
+    if (str.includes('rifa') || str.includes('boleta') || str.includes('ticket') || str.includes('numberselector')) return 'selector_boletas_rifas';
+    if (str.includes('ruleta') || str.includes('fortuna') || str.includes('suerte') || str.includes('wheel')) return 'ruleta_suerte';
+    if (str.includes('agenda') || str.includes('reserva') || str.includes('cita') || str.includes('calendario')) return 'reservas_agenda';
+    if (str.includes('notif') || str.includes('toast') || str.includes('campana') || str.includes('bandeja') || str.includes('bell') || str.includes('tray')) return 'sistema_notificaciones';
+    return null;
+  };
+  
+  return check(normName) || check(normTech);
+}
+
+export default function ComponentSandbox({ componentName = '', technicalName = '' }) {
   const normalizedName = componentName.toLowerCase().trim();
-  console.log('[ComponentSandbox] Received componentName:', componentName, 'Normalized:', normalizedName);
+  console.log('[ComponentSandbox] Received componentName:', componentName, 'technicalName:', technicalName);
   
-  let sandboxKey = COMPONENT_SANDBOX_MAP[normalizedName] || null;
-  
-  // Búsqueda difusa para mayor robustez
-  if (!sandboxKey) {
-    if (normalizedName.includes('marquee') || normalizedName.includes('marquesina')) {
-      sandboxKey = 'infinite_logo_marquee';
-    } else if (normalizedName.includes('radial') || normalizedName.includes('menú radial') || normalizedName.includes('menu radial')) {
-      sandboxKey = 'radial_interactive_menu';
-    } else if (normalizedName.includes('tilt') || normalizedName.includes('holograf') || normalizedName.includes('holográf')) {
-      sandboxKey = 'holographic_tilt_card';
-    } else if (normalizedName.includes('magnét') || normalizedName.includes('magnet') || normalizedName.includes('magnetic')) {
-      sandboxKey = 'magnetic_button';
-    } else if (normalizedName.includes('swipe') || normalizedName.includes('desliza') || normalizedName.includes('mazo')) {
-      sandboxKey = 'swipeable_card_stack';
-    } else if (normalizedName.includes('glow') || normalizedName.includes('fondo luces') || normalizedName.includes('luces orgán') || normalizedName.includes('ambient')) {
-      sandboxKey = 'interactive_ambient_glow';
-    } else if (normalizedName.includes('empty') || normalizedName.includes('vacio') || normalizedName.includes('vacío')) {
-      sandboxKey = 'empty_state';
-    } else if (normalizedName.includes('rifa') || normalizedName.includes('boleta') || normalizedName.includes('ticket') || normalizedName.includes('numberselector')) {
-      sandboxKey = 'selector_boletas_rifas';
-    } else if (normalizedName.includes('ruleta') || normalizedName.includes('fortuna') || normalizedName.includes('suerte') || normalizedName.includes('wheel')) {
-      sandboxKey = 'ruleta_suerte';
-    } else if (normalizedName.includes('agenda') || normalizedName.includes('reserva') || normalizedName.includes('cita') || normalizedName.includes('calendario')) {
-      sandboxKey = 'reservas_agenda';
-    }
-  }
+  const sandboxKey = getSandboxKey(componentName, technicalName);
   
   console.log('[ComponentSandbox] Resolved sandboxKey:', sandboxKey);
 
