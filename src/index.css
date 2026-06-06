@@ -5,8 +5,12 @@
 }
 
 :root {
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
+  --color-primary: #7c3aed; /* Violeta Eléctrico */
+  --color-primary-hover: #6d28d9;
+  --color-accent: #06b6d4; /* Cian Tecnológico */
+  
+  /* Gradiente de marca PROTOTIPE */
+  --brand-gradient: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
   
   /* Tema Oscuro por Defecto */
   --color-bg: #070b13;
@@ -38,6 +42,7 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Keyframes y animaciones premium */
 @keyframes slide-in-right {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -53,6 +58,23 @@ body {
   to { opacity: 1; }
 }
 
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes radar-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.5); opacity: 0; }
+  100% { transform: scale(0.95); opacity: 0; }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 .animate-slide-in-right {
   animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -63,6 +85,31 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
+}
+
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
+.animate-radar-pulse {
+  animation: radar-pulse 2s infinite ease-out;
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* Tarjeta premium con hover reactivo y glow */
+.hover-glow-card {
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+
+.hover-glow-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(124, 58, 237, 0.25);
+  box-shadow: 0 12px 24px -10px rgba(124, 58, 237, 0.15), 0 0 1px 1px rgba(124, 58, 237, 0.1);
 }
 
 /* Estilos Premium Globales para Select Dropdowns */
@@ -127,15 +174,15 @@ select option {
 
 /* Sidebar nav item active glow */
 .sidebar-item-active {
-  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.08) 100%);
-  border-color: rgba(99,102,241,0.3);
-  box-shadow: inset 0 0 0 1px rgba(99,102,241,0.2);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%);
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.2);
 }
 
 /* Scrollbar thin utilities */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: rgba(99,102,241,0.3) transparent;
+  scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
@@ -144,7 +191,7 @@ select option {
   background: transparent;
 }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: rgba(99,102,241,0.3);
+  background-color: rgba(124, 58, 237, 0.3);
   border-radius: 2px;
 }
 
@@ -172,6 +219,7 @@ select option {
   background-color: var(--color-surface) !important;
   box-shadow: 0 0 0 1px var(--color-primary) !important;
 }
+
 
 
 

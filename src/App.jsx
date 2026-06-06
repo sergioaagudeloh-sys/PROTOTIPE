@@ -850,20 +850,22 @@ export default function App() {
     return (
       <div className="min-h-screen relative flex items-center justify-center bg-[#070b13] px-4 font-sans overflow-hidden">
         {/* Background Gradients and blobs */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-500/10 blur-[120px] pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_center,rgba(99,102,241,0.02),transparent)]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 blur-[120px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_center,rgba(124,58,237,0.02),transparent)]" />
 
         <form 
           onSubmit={handleLogin}
           className="w-full max-w-md bg-slate-900/60 border border-slate-800/80 p-8 rounded-3xl shadow-2xl backdrop-blur-xl relative z-10 space-y-6"
         >
           <div className="text-center relative">
-            <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(99,102,241,0.3)]">
-              <Lock size={30} />
+            <div className="w-16 h-16 bg-gradient-to-tr from-violet-500 to-cyan-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(124,58,237,0.3)] animate-gradient-shift">
+              <svg className="w-8 h-8" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M25 15h40c13 0 20 7 20 20s-7 20-20 20H45v30H25V15zm20 20h18c4 0 6-2 6-5s-2-5-6-5H45v10z"/>
+              </svg>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Consola Central SaaS</h2>
-            <p className="text-xs text-slate-400 mt-1">Ingreso exclusivo para desarrolladores y administradores core.</p>
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">PROTOTIPE</h2>
+            <p className="text-xs text-slate-400 mt-1">Consola Central de Aplicaciones a la Medida</p>
           </div>
 
           {authError && (
@@ -887,10 +889,10 @@ export default function App() {
                 <input 
                   type="email" 
                   required
-                  placeholder="dev@plataforma.com"
+                  placeholder="dev@prototipe.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 pl-11 pr-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-200 transition-all placeholder:text-slate-600"
+                  className="w-full h-12 pl-11 pr-3 rounded-xl bg-slate-950/80 border border-slate-800/80 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-slate-200 transition-all placeholder:text-slate-600"
                 />
                 <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
               </div>
@@ -905,7 +907,7 @@ export default function App() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-12 pl-11 pr-11 rounded-xl bg-slate-950/80 border border-slate-800/80 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-200 transition-all placeholder:text-slate-600"
+                  className="w-full h-12 pl-11 pr-11 rounded-xl bg-slate-950/80 border border-slate-800/80 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-slate-200 transition-all placeholder:text-slate-600"
                 />
                 <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                 <button
@@ -922,7 +924,7 @@ export default function App() {
           <button
             type="submit"
             disabled={authLoading}
-            className="w-full h-12 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-sm font-bold shadow-[0_4px_15px_rgba(99,102,241,0.2)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.35)] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+            className="w-full h-12 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 text-white rounded-xl text-sm font-bold shadow-[0_4px_15px_rgba(124,58,237,0.2)] hover:shadow-[0_4px_20px_rgba(124,58,237,0.35)] transition-all duration-300 cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
           >
             {authLoading ? (
               <>
@@ -943,7 +945,7 @@ export default function App() {
     return (
       <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] font-sans pb-12 overflow-x-hidden transition-colors duration-300">
         {/* Background decorativos */}
-        <div className="absolute top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-indigo-500/5 to-purple-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100" />
+        <div className="absolute top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-violet-500/5 to-cyan-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100" />
         
         {/* Barra de Navegación Premium */}
         <nav className="h-16 border-b border-[var(--color-border)] bg-[var(--color-surface)]/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300">
@@ -958,7 +960,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <span className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Aprovisionamiento y Onboarding</span>
-            <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">SaaS Engine</span>
+            <span className="text-[10px] text-slate-500 font-medium tracking-wider uppercase">PROTOTIPE Engine</span>
           </div>
         </nav>
 
@@ -2077,28 +2079,63 @@ export default function App() {
 
   // RENDER PANEL PRINCIPAL
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] font-sans overflow-x-hidden selection:bg-indigo-500/30 selection:text-indigo-200 transition-colors duration-300 flex flex-col">
+    <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] font-sans overflow-x-hidden selection:bg-violet-500/30 selection:text-violet-200 transition-colors duration-300 flex flex-col">
       {/* Background decorativos */}
-      <div className="fixed top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-indigo-500/5 to-purple-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
-      <div className="fixed top-[20%] left-[-10%] w-[40%] h-[400px] rounded-full bg-indigo-500/2 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
+      <div className="fixed top-0 right-0 w-[50%] h-[400px] rounded-full bg-gradient-to-b from-violet-500/5 to-purple-500/0 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
+      <div className="fixed top-[20%] left-[-10%] w-[40%] h-[400px] rounded-full bg-violet-500/2 blur-[150px] pointer-events-none opacity-50 dark:opacity-100 z-0" />
 
       {/* Topbar Premium */}
-      <nav className="h-14 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md px-4 lg:px-6 flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300 shrink-0">
-        <div className="flex items-center gap-3">
-          {/* Sidebar toggle (desktop) */}
-          <button
-            onClick={() => setSidebarCollapsed(prev => !prev)}
-            className="hidden lg:flex w-8 h-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 hover:bg-[var(--color-surface-2)] items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer"
+      <nav className="h-14 border-b border-[var(--color-border)] bg-[var(--color-surface)]/90 backdrop-blur-md pr-4 lg:pr-6 pl-0 flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300 shrink-0">
+        <div className="flex items-center gap-0">
+          {/* Contenedor responsivo al colapso del sidebar */}
+          <div 
+            className={`hidden lg:flex items-center h-14 border-r border-[var(--color-border)] transition-all duration-300 shrink-0 px-4 ${
+              sidebarCollapsed ? 'w-[64px] justify-center' : 'w-[220px] justify-start gap-3'
+            }`}
           >
-            <Menu size={15} />
-          </button>
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-            <Layers size={16} />
+            {/* Hamburger Button (Always visible on the left) */}
+            <button
+              onClick={() => setSidebarCollapsed(prev => !prev)}
+              className="w-8 h-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)]/50 hover:bg-[var(--color-surface-2)] flex items-center justify-center text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors cursor-pointer shrink-0"
+              title={sidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
+            >
+              <Menu size={15} />
+            </button>
+
+            {/* Logo & Brand (Inside wrapper, visible ONLY when expanded) */}
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-3 transition-all duration-300 ease-out select-none truncate">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500/20 to-cyan-500/20 border border-violet-500/30 text-violet-400 flex items-center justify-center shadow-[0_0_15px_rgba(124,58,237,0.15)] animate-gradient-shift shrink-0">
+                  <svg className="w-4.5 h-4.5" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M25 15h40c13 0 20 7 20 20s-7 20-20 20H45v30H25V15zm20 20h18c4 0 6-2 6-5s-2-5-6-5H45v10z"/>
+                  </svg>
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-extrabold text-sm tracking-wide text-slate-800 dark:text-slate-100 leading-tight">PROTOTIPE</span>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-sm tracking-wide bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">Consola SaaS</span>
-            <span className="hidden sm:block text-[9px] text-slate-500 font-medium tracking-wider uppercase">Developer Cockpit</span>
-          </div>
+
+          {/* Logo & Brand (Outside wrapper, visible ONLY when collapsed to slide into topbar) */}
+          {sidebarCollapsed && (
+            <div 
+              onClick={() => setSidebarCollapsed(false)}
+              className="flex items-center gap-3 pl-6 transition-all duration-300 ease-out cursor-pointer hover:opacity-80 select-none"
+            >
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500/20 to-cyan-500/20 border border-violet-500/30 text-violet-400 flex items-center justify-center shadow-[0_0_15px_rgba(124,58,237,0.15)] animate-gradient-shift shrink-0">
+                <svg className="w-4.5 h-4.5" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M25 15h40c13 0 20 7 20 20s-7 20-20 20H45v30H25V15zm20 20h18c4 0 6-2 6-5s-2-5-6-5H45v10z"/>
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-sm tracking-wide text-slate-800 dark:text-slate-100 leading-tight">PROTOTIPE</span>
+                <span className="hidden sm:block text-[9px] text-slate-450 dark:text-slate-500 font-medium tracking-wider uppercase">
+                  Motor de Aplicaciones a la Medida
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -2108,7 +2145,7 @@ export default function App() {
               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
           }`}>
             <span className="relative flex h-1.5 w-1.5">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+              <span className={`animate-radar-pulse absolute inline-flex h-full w-full rounded-full opacity-75 ${
                 dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-400' : 'bg-amber-400'
               }`}></span>
               <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
@@ -2120,7 +2157,7 @@ export default function App() {
           <DarkModeToggle isDark={theme === 'dark'} onToggle={toggleTheme} />
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-[11px] font-semibold text-[var(--color-text)] truncate max-w-[140px]">{user.email}</span>
-            <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Root Dev</span>
+            <span className="text-[9px] text-violet-500 dark:text-violet-400 font-bold uppercase tracking-wider">Root Dev</span>
           </div>
           <button 
             onClick={handleLogout}
@@ -2151,13 +2188,13 @@ export default function App() {
                   title={sidebarCollapsed ? tab.label : undefined}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer border w-full text-left ${
                     isActive
-                      ? 'sidebar-item-active text-indigo-400 border-indigo-500/30'
+                      ? 'sidebar-item-active text-violet-400 border-violet-500/30'
                       : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-2)]/50 border-transparent'
                   }`}
                 >
-                  <Icon size={16} className={`shrink-0 ${isActive ? 'text-indigo-400' : ''}`} />
+                  <Icon size={16} className={`shrink-0 ${isActive ? 'text-violet-400' : ''}`} />
                   {!sidebarCollapsed && <span className="truncate">{tab.label}</span>}
-                  {!sidebarCollapsed && isActive && <ChevronRight size={12} className="ml-auto text-indigo-400/60" />}
+                  {!sidebarCollapsed && isActive && <ChevronRight size={12} className="ml-auto text-violet-400/60" />}
                 </button>
               )
             })}
@@ -2221,7 +2258,7 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h1 className="text-xl font-black text-[var(--color-text)] flex items-center gap-2.5">
-                    <LayoutDashboard size={20} className="text-indigo-400" />
+                    <LayoutDashboard size={20} className="text-violet-400" />
                     Dashboard General
                   </h1>
                   <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Visión consolidada de ingresos y estado del sistema en tiempo real.</p>
@@ -2243,13 +2280,13 @@ export default function App() {
               {/* Métricas - Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Comisión Acumulada', val: totalComision, icon: TrendingUp, col: 'from-indigo-500/20 to-indigo-500/5 dark:from-indigo-500/10 dark:to-indigo-500/2', iconCol: 'text-indigo-600 dark:text-indigo-400', type: 'comision' },
+                  { label: 'Comisión Acumulada', val: totalComision, icon: TrendingUp, col: 'from-violet-500/20 to-violet-500/5 dark:from-violet-500/10 dark:to-violet-500/2', iconCol: 'text-violet-650 dark:text-violet-400', type: 'comision' },
                   { label: 'Cobrado', val: totalCobrado, icon: CheckCircle, col: 'from-emerald-500/20 to-emerald-500/5 dark:from-emerald-500/10 dark:to-emerald-500/2', iconCol: 'text-emerald-600 dark:text-emerald-400', type: 'cobrado' },
                   { label: 'Por Recaudar', val: totalPendiente, icon: Clock, col: 'from-amber-500/20 to-amber-500/5 dark:from-amber-500/10 dark:to-amber-500/2', iconCol: 'text-amber-600 dark:text-amber-400', type: 'pendiente' },
-                  { label: 'Clientes Activos', val: clientesActivos, icon: Users, col: 'from-purple-500/20 to-purple-500/5 dark:from-purple-500/10 dark:to-purple-500/2', iconCol: 'text-purple-600 dark:text-purple-400', isNumber: true, type: 'clientes' }
+                  { label: 'Clientes Activos', val: clientesActivos, icon: Users, col: 'from-cyan-500/20 to-cyan-500/5 dark:from-cyan-500/10 dark:to-cyan-500/2', iconCol: 'text-cyan-600 dark:text-cyan-400', isNumber: true, type: 'clientes' }
                 ].map((card, idx) => (
                   <div key={idx} onClick={() => setActiveMetricModal(card.type)}
-                    className={`p-5 bg-gradient-to-br ${card.col} bg-[var(--color-surface)] rounded-2xl flex flex-col gap-2 shadow-sm relative overflow-hidden group hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer border border-[var(--color-border)]`}>
+                    className={`p-5 bg-gradient-to-br ${card.col} bg-[var(--color-surface)] rounded-2xl flex flex-col gap-2 shadow-sm relative overflow-hidden group active:scale-[0.98] cursor-pointer border border-[var(--color-border)] hover-glow-card`}>
                     <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-extrabold text-[var(--color-text-muted)] uppercase tracking-widest leading-tight">{card.label}</span>
@@ -2268,11 +2305,11 @@ export default function App() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
                 {/* Gráfico de barras */}
                 <div className="lg:col-span-2 bg-[var(--color-surface)] p-6 rounded-2xl flex flex-col shadow-sm relative overflow-hidden transition-colors duration-300 border border-[var(--color-border)]">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/3 rounded-full blur-3xl pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/3 rounded-full blur-3xl pointer-events-none" />
                   <div className="space-y-1 mb-5">
-                    <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Métricas</span>
+                    <span className="text-[9px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-wider">Métricas</span>
                     <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2">
-                      <BarChart3 size={16} className="text-indigo-500 dark:text-indigo-400" />
+                      <BarChart3 size={16} className="text-violet-550 dark:text-violet-400" />
                       Comisiones por Cliente
                     </h3>
                   </div>
@@ -2283,8 +2320,8 @@ export default function App() {
                       {chartData.map((client, idx) => {
                         const pctWidth = (client.totalCommission / maxChartValue) * 100
                         const colorSet = [
-                          { text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-500/10', bar: 'bg-indigo-500' },
-                          { text: 'text-purple-650 dark:text-purple-400', bg: 'bg-purple-500/10', bar: 'bg-purple-500' },
+                          { text: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-500/10', bar: 'bg-violet-500' },
+                          { text: 'text-cyan-650 dark:text-cyan-400', bg: 'bg-cyan-500/10', bar: 'bg-cyan-500' },
                           { text: 'text-emerald-650 dark:text-emerald-400', bg: 'bg-emerald-500/10', bar: 'bg-emerald-500' },
                           { text: 'text-amber-650 dark:text-amber-400', bg: 'bg-amber-500/10', bar: 'bg-amber-500' },
                           { text: 'text-pink-650 dark:text-pink-400', bg: 'bg-pink-500/10', bar: 'bg-pink-500' }
@@ -2311,7 +2348,7 @@ export default function App() {
                             </div>
                             <div className="text-right min-w-[90px]">
                               <span className="text-[9px] uppercase font-bold tracking-wider text-[var(--color-text-muted)] block">Comisión</span>
-                              <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 font-mono">${client.totalCommission.toLocaleString('es-CO')}</span>
+                              <span className="text-xs font-black text-violet-650 dark:text-violet-400 font-mono">${client.totalCommission.toLocaleString('es-CO')}</span>
                               {client.pendingCount > 0 ? (
                                 <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 block mt-0.5">{client.pendingCount} pend.</span>
                               ) : (
@@ -2325,66 +2362,92 @@ export default function App() {
                   )}
                 </div>
 
-                {/* Consola de Telemetría */}
-                <div className="bg-[var(--color-surface)] p-5 rounded-2xl flex flex-col shadow-sm transition-colors duration-300 border border-[var(--color-border)]">
-                  <div className="space-y-1 mb-4">
-                    <span className="text-[9px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Live Monitor</span>
-                    <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2">
-                      <Activity size={16} className="text-indigo-400" />
-                      Telemetría
-                    </h3>
+                {/* Consola de Telemetría (Estilo Ventana de Comandos Real) */}
+                <div className="bg-[var(--color-surface)] rounded-2xl flex flex-col shadow-sm transition-colors duration-300 border border-[var(--color-border)] overflow-hidden">
+                  {/* Top Bar de Ventana de Comandos */}
+                  <div className="bg-[var(--color-surface-2)]/60 px-4 py-2 border-b border-[var(--color-border)] flex items-center justify-between shrink-0 select-none">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 block" />
+                    </div>
+                    <span className="text-[10px] font-mono text-[var(--color-text-muted)] tracking-wider">telemetry_monitor.sh</span>
+                    <span className="w-6" />
                   </div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
-                      <div className="min-w-0">
-                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Canal DB</span>
-                        <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{dbStatus === 'conectado' && !isSimulated ? 'Firestore' : 'Sandbox'}</span>
+                  
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="space-y-1 mb-4">
+                      <span className="text-[9px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-wider">Live Monitor</span>
+                      <h3 className="font-extrabold text-base text-[var(--color-text)] flex items-center gap-2">
+                        <Activity size={16} className="text-violet-400 animate-pulse" />
+                        Telemetría
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className={`animate-radar-pulse absolute inline-flex h-full w-full rounded-full opacity-75 ${dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${dbStatus === 'conectado' && !isSimulated ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Canal DB</span>
+                          <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{dbStatus === 'conectado' && !isSimulated ? 'Firestore' : 'Sandbox'}</span>
+                        </div>
+                      </div>
+                      <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className={`animate-radar-pulse absolute inline-flex h-full w-full rounded-full opacity-75 ${systemLogs.length > 0 ? (systemLogs[0].type === 'error' ? 'bg-red-400' : systemLogs[0].type === 'warning' ? 'bg-amber-400' : 'bg-emerald-400') : 'bg-slate-400'}`}></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${systemLogs.length > 0 ? (systemLogs[0].type === 'error' ? 'bg-red-500' : systemLogs[0].type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-500'}`}></span>
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Status</span>
+                          <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{systemLogs.length > 0 ? systemLogs[0].type : 'Inactivo'}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="p-2.5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${systemLogs.length > 0 ? (systemLogs[0].type === 'error' ? 'bg-red-500' : systemLogs[0].type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-500'}`} />
-                      <div className="min-w-0">
-                        <span className="text-[8px] uppercase font-bold text-[var(--color-text-muted)] block">Status</span>
-                        <span className="text-[10px] font-bold text-[var(--color-text)] truncate block">{systemLogs.length > 0 ? systemLogs[0].type : 'Inactivo'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-3 h-[220px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
-                    {systemLogs.length === 0 ? (
-                      <div className="text-[var(--color-text-muted)] italic text-xs text-center my-auto">Sin transmisiones registradas.</div>
-                    ) : (
-                      (() => {
-                        const LOGS_PER_PAGE = 5
-                        const totalLogPages = Math.ceil(systemLogs.length / LOGS_PER_PAGE) || 1
-                        const currentPage = Math.min(logPage, totalLogPages)
-                        const paginatedLogs = systemLogs.slice((currentPage - 1) * LOGS_PER_PAGE, currentPage * LOGS_PER_PAGE)
-                        return paginatedLogs.map((log, index) => {
-                          const cardStyle = { info: 'bg-[var(--color-surface-2)]/45 text-[var(--color-text-muted)] border-[var(--color-border)]', warning: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20', error: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20', success: 'bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' }[log.type]
-                          const badgeStyle = { info: 'bg-slate-500/10 text-slate-500 dark:text-slate-400', warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', error: 'bg-red-500/10 text-red-600 dark:text-red-400', success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' }[log.type]
-                          const label = { info: 'INFO', warning: 'WARN', error: 'ERR', success: 'OK' }[log.type]
-                          return (
-                            <div key={index} className={`p-2 rounded-xl border ${cardStyle} text-[10px] flex flex-col gap-0.5`}>
-                              <div className="flex items-center justify-between">
-                                <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${badgeStyle}`}>{label}</span>
-                                <span className="text-[8px] text-[var(--color-text-muted)] font-mono">{log.timestamp}</span>
+                    
+                    <div className="flex-1 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl p-3 h-[220px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
+                      {systemLogs.length === 0 ? (
+                        <div className="text-[var(--color-text-muted)] italic text-xs text-center my-auto flex items-center justify-center gap-1">
+                          <span>Sin transmisiones registradas</span>
+                          <span className="w-1.5 h-3 bg-violet-400 animate-cursor-blink inline-block" />
+                        </div>
+                      ) : (
+                        (() => {
+                          const LOGS_PER_PAGE = 5
+                          const totalLogPages = Math.ceil(systemLogs.length / LOGS_PER_PAGE) || 1
+                          const currentPage = Math.min(logPage, totalLogPages)
+                          const paginatedLogs = systemLogs.slice((currentPage - 1) * LOGS_PER_PAGE, currentPage * LOGS_PER_PAGE)
+                          return paginatedLogs.map((log, index) => {
+                            const cardStyle = { info: 'bg-[var(--color-surface-2)]/45 text-[var(--color-text-muted)] border-[var(--color-border)]', warning: 'bg-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/20', error: 'bg-red-500/5 text-red-700 dark:text-red-400 border-red-500/20', success: 'bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' }[log.type]
+                            const badgeStyle = { info: 'bg-slate-500/10 text-slate-500 dark:text-slate-400', warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', error: 'bg-red-500/10 text-red-600 dark:text-red-400', success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' }[log.type]
+                            const label = { info: 'INFO', warning: 'WARN', error: 'ERR', success: 'OK' }[log.type]
+                            return (
+                              <div key={index} className={`p-2 rounded-xl border ${cardStyle} text-[10px] flex flex-col gap-0.5`}>
+                                <div className="flex items-center justify-between">
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${badgeStyle}`}>{label}</span>
+                                  <span className="text-[8px] text-[var(--color-text-muted)] font-mono">{log.timestamp}</span>
+                                </div>
+                                <p className="font-mono leading-relaxed break-words">
+                                  {log.message}
+                                  {index === 0 && <span className="w-1.5 h-3 bg-violet-400 animate-cursor-blink inline-block ml-1" />}
+                                </p>
                               </div>
-                              <p className="font-mono leading-relaxed break-words">{log.message}</p>
-                            </div>
-                          )
-                        })
-                      })()
-                    )}
-                  </div>
-                  <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
-                    <button onClick={() => { setSystemLogs([]); setLogPage(1) }} className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">Limpiar</button>
-                    {systemLogs.length > 5 && (
-                      <div className="flex items-center gap-1.5 text-[10px]">
-                        <button disabled={logPage === 1} onClick={() => setLogPage(p => Math.max(p - 1, 1))} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">◀</button>
-                        <span className="font-mono text-[9px] text-[var(--color-text-muted)]">{logPage}/{Math.ceil(systemLogs.length / 5)}</span>
-                        <button disabled={logPage >= Math.ceil(systemLogs.length / 5)} onClick={() => setLogPage(p => p + 1)} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">▶</button>
-                      </div>
-                    )}
+                            )
+                          })
+                        })()
+                      )}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex items-center justify-between">
+                      <button onClick={() => { setSystemLogs([]); setLogPage(1) }} className="text-[10px] font-bold text-slate-500 hover:text-slate-300 transition-colors cursor-pointer">Limpiar</button>
+                      {systemLogs.length > 5 && (
+                        <div className="flex items-center gap-1.5 text-[10px]">
+                          <button disabled={logPage === 1} onClick={() => setLogPage(p => Math.max(p - 1, 1))} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">◀</button>
+                          <span className="font-mono text-[9px] text-[var(--color-text-muted)]">{logPage}/{Math.ceil(systemLogs.length / 5)}</span>
+                          <button disabled={logPage >= Math.ceil(systemLogs.length / 5)} onClick={() => setLogPage(p => p + 1)} className="px-1.5 py-0.5 rounded bg-[var(--color-surface-2)] border border-[var(--color-border)] disabled:opacity-30 cursor-pointer font-bold">▶</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2404,22 +2467,22 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Nuevas Tiendas a Añadir</label>
-                    <input type="number" min="0" value={projNewClients} onChange={e => setProjNewClients(parseInt(e.target.value) || 0)}
+                    <input type="number" min="0" value={projNewClients === 0 ? '' : projNewClients} onChange={e => setProjNewClients(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                       className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Ventas Promedio/Tienda ($)</label>
-                    <input type="number" min="0" step="500000" value={projAvgSales} onChange={e => setProjAvgSales(parseInt(e.target.value) || 0)}
+                    <input type="number" min="0" step="500000" value={projAvgSales === 0 ? '' : projAvgSales} onChange={e => setProjAvgSales(e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
                       className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Tasa Nuevas Tiendas (%)</label>
-                    <input type="number" min="0" step="0.1" value={projRate} onChange={e => setProjRate(parseFloat(e.target.value) || 0)}
+                    <input type="number" min="0" step="0.1" value={projRate === 0 ? '' : projRate} onChange={e => setProjRate(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
                       className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-bold text-[var(--color-text-muted)] block">Horizonte (Meses)</label>
-                    <input type="number" min="1" max="60" value={projMonths} onChange={e => setProjMonths(parseInt(e.target.value) || 1)}
+                    <input type="number" min="1" max="60" value={projMonths === 0 ? '' : projMonths} onChange={e => setProjMonths(e.target.value === '' ? '' : parseInt(e.target.value) || 1)}
                       className="bg-[var(--color-bg)] border border-[var(--color-border)] rounded-xl px-3 py-2 text-xs text-[var(--color-text)] outline-none focus:border-indigo-500 w-full font-mono" />
                   </div>
                 </div>
